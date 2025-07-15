@@ -174,32 +174,33 @@ const handleAddEntry = async (entry: DHCPEntry) => {
     password: password,
   };
 
-  const dhcpEntry = `\thost ${entry.hostname} {\n\t\thardware ethernet ${entry.macAddress};\n\t\tfixed-address ${entry.ipAddress};\n\t\t}`;
-  updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname);
-  // we will continue this later
-  // Still have to add the backend and make sure we properly update the dhcpd.conf. Maybe we want
-  // to use a test file to make sure we arent messing up the file itself.
-  // try {
-  //   const response = await fetch('/api/add-dhcp-entry', {
-  //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json' },
-  //     body: JSON.stringify({ auth, dhcpEntry }),
-  //   });
-    
-  //   if (!response.ok) {
-  //     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-  //     const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-  //     openModal(`Error adding entry: ${errorMessage}`);
-  //     return;
-  //   }
-    
-  //   // Refresh the dhcpd.conf to show the new entry
-  //   fetchDhcpdConf();
-  //   openModal(`Successfully added entry for ${entry.hostname}`);
-  // } catch (error) {
-  //   console.error('Error adding entry:', error);
-  //   openModal('Error: Network request failed. Check if backend is running.');
-  // }
+  const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname);
+  try {
+    const response = await fetch('/api/update-dhcpd-conf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth, dhcpdConf: updatedDhcpdConf }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
+      openModal(`Error updating DHCP configuration: ${errorMessage}`);
+      return;
+    }
+  } catch (error) {
+    console.error('Error updating DHCP configuration:', error);
+    openModal('Error: Network request failed. Check if backend is running.');
+  }
+  openModal(`Successfully updated entry for ${entry.hostname}`);
+  fetchDhcpdConf();
+  setIsAddEntryModalOpen(false);
+  setCurrentHostname('');
+  setCurrentMacAddress('');
+  setSelectedIpForEntry('');
+  setSelectedType('');
+  setIsAddEntryModalOpen(false);
+  checkStatus();
+  return;
 };
 
 const openAddEntryModal = (ipAddress: string, currentHostname?: string, currentMacAddress?: string) => {

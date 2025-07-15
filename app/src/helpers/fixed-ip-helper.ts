@@ -84,18 +84,40 @@ export function parseDHCPDConf(dhcpdConf: string) {
     return sortIPs(fixedIps);
   }
 
-export function updateHostEntry(dhcpdConf: string, hostName: string, newIP?: string, newMAC?: string, newHostName?: string) {
+  export function updateHostEntry(dhcpdConf: string, hostName: string, newIP?: string, newMAC?: string, newHostName?: string) {
     const lines = dhcpdConf.split('\n');
     const hosts = parseDHCPDConf(dhcpdConf);
-    console.log('Lines before update',lines);
+    
     const target = hosts.find((host: FixedIp) => host.hostName === hostName);
-    console.log('target',target);
-    console.log('hostName',hostName);
-    console.log('newIP',newIP);
-    console.log('newMAC',newMAC);
-    console.log('newHostName',newHostName);
-    if(!target) throw new Error(`Host ${hostName} not found`);
-
+    
+    if(!target) {
+        // For new entries, find the right insertion point by IP address
+        const finalName = newHostName ?? hostName;
+        const newBlock = `host ${finalName} { hardware ethernet ${newMAC}; fixed-address ${newIP}; }`;
+        
+        // Build an array of every host line with its IP address
+        const hostEntries: Array<{ lineIndex: number; ip: string }> = [];
+        lines.forEach((line, idx) => {
+          const ipMatch = line.match(/fixed-address\s+(\d{1,3}(?:\.\d{1,3}){3})/);
+          if (ipMatch) hostEntries.push({ lineIndex: idx, ip: ipMatch[1] });
+        });
+        
+        // Sort by IP (lexicographic is fine for dotted quads)
+        hostEntries.sort((a, b) => a.ip.localeCompare(b.ip));
+        
+        // Find the first host whose IP is greater than the new one
+        const newIPVal = newIP ?? '';
+        let insertIndex = lines.length; // default: append
+        for (const entry of hostEntries) {
+          if (entry.ip > newIPVal) {
+            insertIndex = entry.lineIndex;
+            break;
+          }
+        }
+        
+        lines.splice(insertIndex, 0, newBlock);
+        return lines.join('\n');
+    }
     const finalName = newHostName ?? hostName;
     const indent = (lines[target.lineNumber] || '').match(/^\s*/)?.[0] ?? '';
     const newBlock = [
@@ -109,11 +131,12 @@ export function updateHostEntry(dhcpdConf: string, hostName: string, newIP?: str
     console.log('lineNumber',target.lineNumber);
     lines.splice(
       target.lineNumber -1,
-      target.lineNumber,
+      1,
       newBlock
     );
     console.log('newBlock',newBlock);
     console.log('lines',lines);
+    return lines.join('\n');
 }
 
 
@@ -144,3 +167,15 @@ export function createLeaseArray(fixedIps: FixedIp[], typeOctet: number, ipPrefi
     
     return leaseArray;
 }
+function ipCompare(ip1: string, ip2: string): number {
+    const octets1 = ip1.split('.').map(Number);
+    const octets2 = ip2.split('.').map(Number);
+    
+    for (let i = 0; i < 4; i++) {
+        if (octets1[i] !== octets2[i]) {
+            return octets1[i] - octets2[i];
+        }
+    }
+    return 0;
+}
+
