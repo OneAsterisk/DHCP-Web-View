@@ -3,14 +3,18 @@ export type FixedIp = {
     ip: string | undefined;
     type: string | undefined;
     typeOctet: string | undefined;
+    lineNumber: number;
+    HWAddress: string | undefined;
 }
 
 export type LeaseArray = {
     ip: string;
     status: string;
     hostname: string | undefined;
+    HWAddress: string | undefined;
 }
 
+const dhcpdConfPath = '/etc/dhcp/dhcpd.conf';
 
 export const getTypeDescription = (type: number): string => {
     if (type === 10) return "Network Switches";
@@ -33,20 +37,83 @@ export const getTypeDescription = (type: number): string => {
   };
 // TODO: Add district to the parseDHCPDConf function
 export function parseDHCPDConf(dhcpdConf: string) {
-    const lines = dhcpdConf.split('\n');
-    const ips = lines.slice(164);
-    const fixedIps = [];
-    for (const line of ips) {
-        if (line.includes('fixed-address')) {
-            const ip = line.match(/fixed-address\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)?.[1];
-            const hostName = line.match(/\bhost\s+([^\s{]+)/)?.[1];
-            const typeOctet = ip?.split('.')[2];
-            const type = getTypeDescription(Number(typeOctet));
-            fixedIps.push({hostName, ip, type, typeOctet});
-        }
+    const fixedIps: Array<{
+      hostName: string;
+      ip: string;
+      type: string;
+      typeOctet: string;
+      lineNumber: number;
+      HWAddress: string;
+    }> = [];
+  
+    // 1. throw away comments so they don’t break the regex
+    const cleaned = dhcpdConf
+      .split('\n')
+      .map((l) => l.replace(/#.*$/, '').trim())
+      .join('\n');
+  
+    // 2. dot matches newlines workaround for JS (no (?s) flag in JS regex)
+    const hostRegex =
+      /\bhost\s+([^\s{]+)\s*\{([\s\S]*?)\}/g;
+  
+    let m;
+    while ((m = hostRegex.exec(cleaned)) !== null) {
+      const [, hostName, body] = m;
+  
+      const macMatch = body.match(/\bhardware\s+ethernet\s+([0-9a-fA-F:]{17})/);
+      const ipMatch = body.match(/\bfixed-address\s+(\d{1,3}(?:\.\d{1,3}){3})/);
+  
+      if (!macMatch || !ipMatch) continue;
+  
+      const ip = ipMatch[1];
+      const typeOctet = ip.split('.')[2];
+      const type = getTypeDescription(Number(typeOctet));
+  
+      // line number of the host keyword
+      const lineNumber = cleaned.slice(0, m.index).split('\n').length;
+      fixedIps.push({
+        hostName,
+        ip,
+        type,
+        typeOctet,
+        lineNumber,
+        HWAddress: macMatch[1],
+      });
     }
+  
     return sortIPs(fixedIps);
+  }
 
+export function updateHostEntry(dhcpdConf: string, hostName: string, newIP?: string, newMAC?: string, newHostName?: string) {
+    const lines = dhcpdConf.split('\n');
+    const hosts = parseDHCPDConf(dhcpdConf);
+    console.log('Lines before update',lines);
+    const target = hosts.find((host: FixedIp) => host.hostName === hostName);
+    console.log('target',target);
+    console.log('hostName',hostName);
+    console.log('newIP',newIP);
+    console.log('newMAC',newMAC);
+    console.log('newHostName',newHostName);
+    if(!target) throw new Error(`Host ${hostName} not found`);
+
+    const finalName = newHostName ?? hostName;
+    const indent = (lines[target.lineNumber] || '').match(/^\s*/)?.[0] ?? '';
+    const newBlock = [
+      `${indent}host ${finalName} {`,
+      newMAC ? `${indent}  hardware ethernet ${newMAC};` : undefined,
+      newIP ? `${indent}  fixed-address ${newIP};` : undefined,
+      `${indent}}`,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    console.log('lineNumber',target.lineNumber);
+    lines.splice(
+      target.lineNumber -1,
+      target.lineNumber,
+      newBlock
+    );
+    console.log('newBlock',newBlock);
+    console.log('lines',lines);
 }
 
 
@@ -60,7 +127,6 @@ function filterByTypeAndSort(fixedIps: any[], type: string) {
 //Sorts based on the type octec
 function sortIPs(fixedIps: FixedIp[]){
     const sortedIps = fixedIps.sort((a, b) => a.typeOctet?.localeCompare(b.typeOctet || '') || 0);
-    console.log('sortedIps',sortedIps);
     return sortedIps;
 }
 
@@ -70,13 +136,11 @@ export function createLeaseArray(fixedIps: FixedIp[], typeOctet: number, ipPrefi
     for (let i = 1; i <= totalIps; i++) {
         const ip: string = `${ipPrefix}.${typeOctet}.${i}`;
         if (fixedIps.some(fixedIp => fixedIp.ip === ip)) {
-            console.log('fixedIp',fixedIps.find(fixedIp => fixedIp.ip === ip));
-            leaseArray.push({ip, status: 'Taken', hostname: fixedIps.find(fixedIp => fixedIp.ip === ip)?.hostName});
+            leaseArray.push({ip, status: 'Taken', hostname: fixedIps.find(fixedIp => fixedIp.ip === ip)?.hostName, HWAddress: fixedIps.find(fixedIp => fixedIp.ip === ip)?.HWAddress});
         } else {
-            leaseArray.push({ip, status: 'Free', hostname: ''});
+            leaseArray.push({ip, status: 'Free', hostname: '', HWAddress: ''});
         }
         }
-        console.log('leaseArray',leaseArray);
     
     return leaseArray;
 }

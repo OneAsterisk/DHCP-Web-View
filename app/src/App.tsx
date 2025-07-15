@@ -1,11 +1,19 @@
 import { use, useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { createLeaseArray, parseDHCPDConf, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
+import { createLeaseArray, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
+import AddEntryModal from './components/AddEntryModal';
+
 type Server = {
   name: string;
   host: string;
   ipPrefix: string;
   typeDescriptions: {[key: string]: number[]};
+}
+
+interface DHCPEntry {
+  hostname: string;
+  macAddress: string;
+  ipAddress: string;
 }
 
 function App() {
@@ -21,9 +29,13 @@ function App() {
   const [modalMessage, setModalMessage] = useState<string>('');
   const [leases, setLeases] = useState<any[]>([]);
   const [dhcpdConf, setDhcpdConf] = useState<FixedIp[]>([]);
+  const [dhcpdConfString, setDhcpdConfString] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('');
   const [leaseArray, setLeaseArray] = useState<LeaseArray[]>([]);
-  
+  const [isAddEntryModalOpen, setIsAddEntryModalOpen] = useState<boolean>(false);
+  const [selectedIpForEntry, setSelectedIpForEntry] = useState<string>('');
+  const [currentHostname, setCurrentHostname] = useState<string>('');
+  const [currentMacAddress, setCurrentMacAddress] = useState<string>('');
 const typeDescriptions = useMemo(() => {
   if (!selectedServer || !selectedServer.typeDescriptions) {
     return [];
@@ -50,8 +62,11 @@ const typeDescriptions = useMemo(() => {
 }, []);
 
 useEffect(() => {
-  fetchDhcpdConf();
-}, [selectedServer, isLoggedIn]);
+  // Only fetch dhcpd.conf if user is logged in and has credentials
+  if (isLoggedIn && selectedServer.host && username && password) {
+    fetchDhcpdConf();
+  }
+}, [selectedServer, isLoggedIn, username, password]);
 
 useEffect(() => {
   if (selectedType && selectedType !== '' && selectedServer.typeDescriptions) {
@@ -100,6 +115,7 @@ if(!username || !password) {
   }
   const data = await response.json(); 
   setDhcpdConf(parseDHCPDConf(data.output));
+  setDhcpdConfString(data.output);
 }
 
 const checkStatus = async () => {
@@ -131,7 +147,6 @@ const checkStatus = async () => {
     }
     
     const data = await response.json();
-    console.log('Response:', data);
     setOutput(data.output);
     
     const lines = data.output.split('\n');
@@ -146,14 +161,60 @@ const checkStatus = async () => {
     setOutput('Error: Network request failed. Check if backend is running.');
   }
 };
+
+const handleAddEntry = async (entry: DHCPEntry) => {
+  if (!isLoggedIn || !selectedServer.host || !username || !password) {
+    openModal('Please provide your server credentials to add an entry');
+    return;
+  }
+
+  const auth = {
+    host: selectedServer.host,
+    username: username,
+    password: password,
+  };
+
+  const dhcpEntry = `\thost ${entry.hostname} {\n\t\thardware ethernet ${entry.macAddress};\n\t\tfixed-address ${entry.ipAddress};\n\t\t}`;
+  updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname);
+  // we will continue this later
+  // Still have to add the backend and make sure we properly update the dhcpd.conf. Maybe we want
+  // to use a test file to make sure we arent messing up the file itself.
+  // try {
+  //   const response = await fetch('/api/add-dhcp-entry', {
+  //     method: 'POST',
+  //     headers: { 'Content-Type': 'application/json' },
+  //     body: JSON.stringify({ auth, dhcpEntry }),
+  //   });
+    
+  //   if (!response.ok) {
+  //     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+  //     const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
+  //     openModal(`Error adding entry: ${errorMessage}`);
+  //     return;
+  //   }
+    
+  //   // Refresh the dhcpd.conf to show the new entry
+  //   fetchDhcpdConf();
+  //   openModal(`Successfully added entry for ${entry.hostname}`);
+  // } catch (error) {
+  //   console.error('Error adding entry:', error);
+  //   openModal('Error: Network request failed. Check if backend is running.');
+  // }
+};
+
+const openAddEntryModal = (ipAddress: string, currentHostname?: string, currentMacAddress?: string) => {
+  setSelectedIpForEntry(ipAddress);
+  setIsAddEntryModalOpen(true);
+};
+
 useEffect(() => {
   // Only run if user is logged in and has selected a server
-  if (!isLoggedIn || !selectedServer || !username || !password) {
+  if (!isLoggedIn || !selectedServer.host || !username || !password) {
     return;
   }
   
   checkStatus();
-}, [selectedServer, isLoggedIn]);
+}, [selectedServer, isLoggedIn, username, password]);
 
 
   return (
@@ -262,6 +323,7 @@ useEffect(() => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">IP Address</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Hostname</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -279,6 +341,27 @@ useEffect(() => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
                     {item.status === 'Taken' ? (item.hostname || 'Unknown') : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {item.status === 'Free' && isLoggedIn ? (
+                      <button
+                        onClick={() => openAddEntryModal(item.ip)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs"
+                      >
+                        Add Entry
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setCurrentHostname(item.hostname || '');
+                          setCurrentMacAddress(item.HWAddress?.toUpperCase() || '');
+                          openAddEntryModal(item.ip)}
+                        }
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs"
+                      >
+                        Change Entry
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -315,6 +398,15 @@ useEffect(() => {
             </div>
           </div>
         )}
+        
+        <AddEntryModal
+          isOpen={isAddEntryModalOpen}
+          onClose={() => setIsAddEntryModalOpen(false)}
+          onSubmit={handleAddEntry}
+          ipAddress={selectedIpForEntry}
+          currentHostname={currentHostname}
+          currentMacAddress={currentMacAddress}
+        />
       </div>
   )
 }
