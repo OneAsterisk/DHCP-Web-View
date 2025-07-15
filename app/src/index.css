@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles can go here */
+body {
+    background: radial-gradient(circle, #0f172a, #1e293b);
+    color: #cfdeec;
+}

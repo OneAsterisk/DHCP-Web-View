@@ -1,0 +1,360 @@
+[
+{
+    "name": "Adams",
+    "host": "dhcp.adams.adremc1.org",
+    "typeDescriptions": {
+        "Network Switches": [10, 11, 12, 13, 14],
+        "Access Points": [15, 16, 17, 18],
+        "Servers": [20, 21, 22, 23, 24, 25, 26, 27],
+        "Printers": [30, 31, 32, 33, 34, 35, 36, 37],
+        "Teacher Machines": [40, 41, 42, 43, 44, 45, 46, 47],
+        "Student Machines - District": [50, 51],
+        "Student Machines - Elementary": [52, 53, 54],
+        "Student Machines - Middle School": [55, 56, 57],
+        "Student Machines - High School": [58, 59, 60, 61, 62, 63],
+        "Student Machines - Misc": [64, 65, 66, 67, 68, 69],
+        "Networked Projectors": [70],
+        "HVAC and Appliances": [75],
+        "eSports - Nintendo Switches": [100],
+        "Dynamic Pool": [253, 254]
+    },
+    "ipPrefix": "10.110"
+},
+{
+    "name": "Bessemer",
+    "host": "dhcp.bes.adremc1.org",
+    "ipPrefix": "10.160",
+    "typeDescriptions": {
+        "Registered Machines - 1": [1],
+        "Unregistered Machines": [2],
+        "Switches": [10],
+        "Access Points": [15],
+        "Servers": [20],
+        "Printers": [30],
+        "Registered Machines - 2": [40],
+        "True Unassigned": [50]
+    }
+},
+{
+    "name": "Chassell",
+    "host": "dhcp.cts.adremc1.org",
+    "ipPrefix": "10.240",
+    "typeDescriptions": {
+        "H323 Endpoints": [3],
+        "Network Infrastructure": [10, 15],
+        "Servers": [20],
+        "Printers": [30],
+        "Office/Staff Computers": [40, 41],
+        "Elementary Teachers": [42, 43],
+        "HS Teachers": [46, 47],
+        "Board Computers": [48],
+        "Elementary Misc": [49, 50],
+        "Elementary Students": [52, 53, 54],
+        "HS Students": [58, 59],
+        "Library": [59],
+        "Student Misc": [61],
+        "eSports Consoles": [100],
+        "Dynamic Pool": [252, 253, 254]
+    }
+},
+{
+    "name": "CCISD/CTE/REMC1",
+    "host": "dhcp.remc1.adremc1.org",
+    "ipPrefix": "172.17",
+    "typeDescriptions": {
+        "Video Conferencing": [3],
+        "Projectors": [4],
+        "Switches": [10],
+        "Access Points": [16],
+        "Servers": [20],
+        "Printers": [30],
+        "Staff Computers": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+        "Student Computers": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
+        "Dynamic Pool": [253, 254]
+    }
+},
+{
+    "name": "CLK",
+    "host": "dhcp.clk.adremc1.org",
+    "ipPrefix": "10.60",
+    "typeDescriptions": {
+        "Switches": [10],
+        "Access Points": [15, 16, 17, 18, 19],
+        "Servers": [20],
+        "District Printers": [30, 31],
+        "Elementary Printers": [32, 33],
+        "Middle School Printers": [34, 35],
+        "High School Printers": [36, 37],
+        "Admin": [40, 41],
+        "Elementary Teachers": [42, 43],
+        "Middle School Teachers": [44, 45],
+        "High School Teachers": [46, 47],
+        "Elementary Students": [52, 53, 54],
+        "Middle School Students": [55, 56, 57],
+        "High School Students": [58, 59, 60],
+        "Promethean Smart Panels": [70],
+        "BHK": [75],
+        "Upper Great Lakes Health (UGLH)": [80],
+        "eSports Nintendo Switches": [100],
+        "Dynamic Pool": [240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
+    }
+},
+{
+    "name": "Dollar Bay",
+    "host": "dhcp.db.adremc1.org",
+    "ipPrefix": "10.80",
+    "typeDescriptions": {
+        "Switches": [10],
+        "Access Points": [15, 16, 17, 18, 19],
+        "Servers": [20],
+        "District Printers": [30, 31],
+        "Elementary Printers": [32, 33],
+        "Middle School Printers": [34, 35],
+        "High School Printers": [36, 37],
+        "Admin": [40, 41],
+        "Elementary Teachers": [42, 43],
+        "Middle School Teachers": [44, 45],
+        "High School Teachers": [46, 47],
+        "Elementary Students": [52, 53, 54],
+        "Middle School Students": [55, 56, 57],
+        "High School Students": [58, 59],
+        "Chromebooks - 1:1 Program": [60],
+        "Chromebooks - Shared": [62, 63, 64, 65],
+        "Dynamic Pool": [251, 252, 253, 254]
+    }
+},
+{
+    "name": "Ewen-Trout Creek",
+    "host": "dhcp.etc.adremc1.org",
+    "ipPrefix": "10.200",
+    "typeDescriptions": {
+        "Switches": [10],
+        "Access Points": [15, 16, 17, 18, 19],
+        "Servers": [20],
+        "Printers": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+        "Admin": [40, 41],
+        "Elementary Teachers": [42, 43],
+        "Middle School Teachers": [44, 45],
+        "High School Teachers": [46, 47],
+        "Elementary Students": [52, 53, 54],
+        "Middle School Students": [55, 56, 57],
+        "High School Students": [58, 59, 60],
+        "Chromebooks": [77],
+        "Dynamic Pool": [251, 252, 253, 254]
+    }
+},
+{
+    "name": "Forest Park",
+    "host": "dhcp.fp.adremc1.org",
+    "ipPrefix": "10.33",
+    "typeDescriptions": {
+        "Video Systems": [3, 4],
+        "Cameras": [9],
+        "Switches": [10],
+        "Access Points": [15, 16, 17, 18, 19],
+        "Servers": [20],
+        "District Printers": [31],
+        "Elementary Printers": [32],
+        "Elementary Lab Printers": [34],
+        "High School Printers": [36],
+        "Staff/Admin": [40, 41, 42, 43, 44, 45, 46, 47],
+        "Pixellot Cameras": [60],
+        "Dynamic Pool": [253, 254]
+    }
+},
+{
+    "name": "GOISD",
+    "host": "dhcp.goisd.adremc1.org"
+},
+{
+    "name": "Hancock",
+    "host": "dhcp.han.adremc1.org",
+    "ipPrefix": "10.90",
+    "typeDescriptions": {
+        "Non-Standard Devices": [3, 4, 5, 6, 7, 8],
+        "Cameras": [9],
+        "Switches": [10, 11, 12, 13, 14],
+        "Access Points": [15, 16, 17, 18, 19],
+        "Servers": [20, 21, 22, 23, 24, 25, 26, 27, 28, 29],
+        "Printers": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+        "Admin": [40, 41],
+        "Elementary Teachers": [42, 43],
+        "Middle School Teachers": [44, 45],
+        "High School Teachers": [46, 47],
+        "Elementary Lab": [52],
+        "Elementary Student Classroom": [53],
+        "Elementary Student Devices": [54],
+        "Middle School Lab": [55],
+        "Middle School Student Classroom": [56],
+        "Middle School Student Devices": [57, 58],
+        "High School Lab": [59],
+        "High School Student Classroom": [60],
+        "High School Student Devices": [61, 62],
+        "Projectors": [70],
+        "BHK & ISD CTE": [75],
+        "eSports Nintendo Switches": [100],
+        "eSports Xboxes": [101],
+        "Dynamic Pool": [253, 254]
+    }
+},
+{
+    "name": "Houghton",
+    "host": "dhcp.htn.adremc1.org",
+    "ipPrefix": "10.100",
+    "typeDescriptions": {
+        "Switches": [10],
+        "Access Points": [15, 16, 17, 18, 19],
+        "Servers": [20],
+        "Printers": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+        "Staff": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+        "Elementary Students": [52, 53, 54],
+        "Middle School Students": [55, 56, 57],
+        "High School Students": [58, 59, 60],
+        "Upper Great Lakes Health (UGLH)": [80],
+        "eSports": [100],
+        "Dynamic Pool": [253, 254]
+    }
+},
+{
+    "name": "Ironwood",
+    "host": "dhcp.iwd.adremc1.org",
+    "ipPrefix": "10.150",
+    "typeDescriptions": {
+        "Switches": [10],
+        "UPS Devices": [11],
+        "Cameras": [13],
+        "Access Points": [15],
+        "Servers": [20],
+        "Printers": [30, 31, 34],
+        "Staff Devices": [40, 46],
+        "Student Devices": [52, 58, 59],
+        "Other Devices": [61],
+        "Dynamic Pool": [251, 252, 253, 254]
+    }
+},
+{
+    "name": "KBOCC",
+    "host": "dhcp.ad.kbocc.edu",
+    "ipPrefix": "10.12",
+    "typeDescriptions": {
+        "Non-Standard Items": [9],
+        "Switches": [10],
+        "Access Points": [15, 16, 17, 18, 19],
+        "Servers": [20],
+        "Printers": [30],
+        "Admin": [40, 41],
+        "Staff": [42, 43],
+        "Student": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60],
+        "Dynamic Pool": [251, 252, 253]
+    }
+},
+{
+    "name": "L'Anse",
+    "host": "dhcp.las.adremc1.org",
+    "ipPrefix": "10.120",
+    "typeDescriptions": {
+        "Switches": [10],
+        "Access Points": [15, 16, 17, 18, 19],
+        "Servers": [20],
+        "District Printers": [30, 31, 32, 33, 34, 35, 36, 37],
+        "Admin Devices": [40, 41],
+        "Elementary Teachers": [42, 43],
+        "Middle School Teachers": [44, 45],
+        "High School Teachers": [46, 47],
+        "BHK & CCISD Devices": [48],
+        "Elementary Students": [52, 53],
+        "Middle School Students": [54, 55],
+        "High School Students": [56, 57],
+        "Chromebooks": [58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69],
+        "Library Adult Machines": [90],
+        "eSports Nintendo Switches": [100],
+        "eSports Windows Computers": [101],
+        "Dynamic Pool": [251, 252, 253, 254]
+    }
+},
+    {
+        "name": "Lake Linden",
+        "host": "dhcp.ll.adremc1.org",
+        "ipPrefix": "10.70",
+        "typeDescriptions": {
+            "Switches": [10],
+            "Access Points": [15, 16, 17, 18, 19],
+            "Servers": [20],
+            "District Printers": [30, 31],
+            "Elementary Printers": [32, 33],
+            "Middle School Printers": [34, 35],
+            "High School Printers": [36, 37],
+            "Admin": [40, 41],
+            "Elementary Teachers": [42, 43],
+            "Middle School Teachers": [44, 45],
+            "High School Teachers": [46, 47],
+            "Elementary Students": [52, 53, 54],
+            "Middle School Students": [55, 56, 57],
+            "High School Students": [58, 59, 60],
+            "Chromebooks": [62, 63, 64, 65],
+            "BHK": [75],
+            "Upper Great Lakes Health (UGLH)": [80],
+            "Dynamic Pool": [253, 254]
+        }
+    },
+    {
+        "name": "Ontonagon",
+        "host": "dhcp.ont.adremc1.org",
+        "ipPrefix": "10.50",
+        "typeDescriptions": {
+            "Video Cameras": [3],
+            "Access Points": [16],
+            "Network Infrastructure": [18],
+            "Printers": [30, 32, 36],
+            "Staff": [40, 46],
+            "Dynamic Pool": [253, 254]
+        }
+    },
+    {
+        "name": "Stanton",
+        "host": "dhcp.sts.adremc1.org",
+        "ipPrefix": "10.250",
+        "typeDescriptions": {
+            "Switches": [10],
+            "Access Points": [15],
+            "Servers": [20],
+            "Printers": [30],
+            "Teachers": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+            "Students": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
+            "iPads": [61],
+            "Chromebooks": [62, 63, 64, 65]
+        }
+    },
+    {
+        "name": "Watersmeet",
+        "host": "dhcp.wts.adremc1.org",
+        "ipPrefix": "10.190",
+        "typeDescriptions": {
+            "Switches": [10],
+            "Access Points": [15, 16, 17, 18, 19],
+            "Servers": [20],
+            "Printers": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+            "Staff": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+            "Elementary Students": [52, 53, 54],
+            "Middle School Students": [55, 56, 57],
+            "High School Students": [58, 59, 60],
+            "Dynamic Pool": [253, 254]
+        }
+    },
+    {
+        "name": "Wakefield",
+        "host": "dhcp.wak.adremc1.org",
+        "ipPrefix": "10.170",
+        "typeDescriptions": {
+            "Switches": [10],
+            "Access Points": [15, 16, 17, 18, 19],
+            "Servers": [20],
+            "Printers": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+            "Staff": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+            "Elementary Students": [52, 53, 54],
+            "Middle School Students": [55, 56, 57],
+            "High School Students": [58, 59, 60],
+            "Dynamic Pool": [253, 254]
+        }
+    }
+]
