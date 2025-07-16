@@ -14,7 +14,7 @@ export type LeaseArray = {
     HWAddress: string | undefined;
 }
 
-const dhcpdConfPath = '/etc/dhcp/dhcpd.conf';
+// const dhcpdConfPath = '/etc/dhcp/dhcpd.conf';
 
 // Generic type descriptions for fallback when no server context is available
 export const getTypeDescription = (type: number): string => {

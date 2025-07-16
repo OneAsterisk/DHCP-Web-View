@@ -1,6 +1,6 @@
-import { use, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { createLeaseArray, createVOIPLeaseArray, calculateVOIPPages, deleteHostEntry, parseDHCPDConf, updateHostEntry, getTypeDescriptionFromContext, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
+import { createLeaseArray, createVOIPLeaseArray, calculateVOIPPages, deleteHostEntry, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
 import AddEntryModal from './components/AddEntryModal';
 
 type Subnet = {
@@ -25,9 +25,9 @@ interface DHCPEntry {
 
 function App() {
 
-  const [output, setOutput] = useState<string>('Click the button to get server status');
   const [servers, setServers] = useState<Server[]>([]);
   const [serviceStatus, setServiceStatus] = useState<string>('Not Checked');
+  const [, setOutput] = useState<string>('Click the button to get server status');
   const [selectedServer, setSelectedServer] = useState<Server>({} as Server);
   const [selectedSubnet, setSelectedSubnet] = useState<Subnet | null>(null);
   const [username, setUsername] = useState<string>('');
@@ -35,7 +35,6 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalMessage, setModalMessage] = useState<string>('');
-  const [leases, setLeases] = useState<any[]>([]);
   const [dhcpdConf, setDhcpdConf] = useState<FixedIp[]>([]);
   const [dhcpdConfString, setDhcpdConfString] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('');
@@ -44,7 +43,7 @@ function App() {
   const [selectedIpForEntry, setSelectedIpForEntry] = useState<string>('');
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [currentMacAddress, setCurrentMacAddress] = useState<string>('');
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [, setIsEditMode] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -52,6 +51,12 @@ function App() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [isLargeRange, setIsLargeRange] = useState<boolean>(false);
   const [isLoadingIPs, setIsLoadingIPs] = useState<boolean>(false);
+  
+  // Loading states
+  const [isLoadingServers, setIsLoadingServers] = useState<boolean>(true);
+  const [isCheckingStatus, setIsCheckingStatus] = useState<boolean>(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(false);
+  const [isUpdatingConfig, setIsUpdatingConfig] = useState<boolean>(false);
 
 const typeDescriptions = useMemo(() => {
   // Check if we have a selected subnet, otherwise fall back to server-level typeDescriptions
@@ -73,22 +78,30 @@ const availableSubnets = useMemo(() => {
     setModalMessage(message);
     setIsModalOpen(true);
   };
+  
   useEffect(() => {
   const fetchServers = async () => {
-   const response = await fetch('/api/servers');
-   if (response.ok) {
-     const data = await response.json();
-     setServers(data);
-     if( data.length > 0) {
-       setSelectedServer(data[0]);
-       // Auto-select first subnet if available
-       if (data[0].subnets && data[0].subnets.length > 0) {
-         setSelectedSubnet(data[0].subnets[0]);
-       } else {
-         setSelectedSubnet(null);
-       }
-     }
-   }
+    setIsLoadingServers(true);
+    try {
+      const response = await fetch('/api/servers');
+      if (response.ok) {
+        const data = await response.json();
+        setServers(data);
+        if( data.length > 0) {
+          setSelectedServer(data[0]);
+          // Auto-select first subnet if available
+          if (data[0].subnets && data[0].subnets.length > 0) {
+            setSelectedSubnet(data[0].subnets[0]);
+          } else {
+            setSelectedSubnet(null);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching servers:', error);
+    } finally {
+      setIsLoadingServers(false);
+    }
   }
    fetchServers();
 }, []);
@@ -174,30 +187,38 @@ if(!username || !password) {
   openModal('Please provide your server credentials to fetch the dhcpd.conf');
   return;
 }
-  const auth = {
-    host: selectedServer.host,
-    username: username,
-    password: password,
-  };
-  const command = 'cat /etc/dhcp/dhcpd.conf';
-  const response = await fetch('/api/dhcpd-conf', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ auth, command }),
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-    openModal(`Error fetching dhcpd.conf: ${errorMessage}`);
-    return;
+  setIsLoadingConfig(true);
+  try {
+    const auth = {
+      host: selectedServer.host,
+      username: username,
+      password: password,
+    };
+    const command = 'cat /etc/dhcp/dhcpd.conf';
+    const response = await fetch('/api/dhcpd-conf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth, command }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
+      openModal(`Error fetching dhcpd.conf: ${errorMessage}`);
+      return;
+    }
+    const data = await response.json(); 
+    
+    // Get the current server's type descriptions for context
+    const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
+    
+    setDhcpdConf(parseDHCPDConf(data.output, currentTypeDescriptions));
+    setDhcpdConfString(data.output);
+  } catch (error) {
+    console.error('Error fetching dhcpd.conf:', error);
+    openModal('Error: Network request failed. Check if backend is running.');
+  } finally {
+    setIsLoadingConfig(false);
   }
-  const data = await response.json(); 
-  
-  // Get the current server's type descriptions for context
-  const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
-  
-  setDhcpdConf(parseDHCPDConf(data.output, currentTypeDescriptions));
-  setDhcpdConfString(data.output);
 }
 
 const checkStatus = async () => {
@@ -205,6 +226,7 @@ const checkStatus = async () => {
     openModal('Please provide your server credentials to check the service status');
     return;
   }
+  setIsCheckingStatus(true);
   setOutput('Loading...');
   const auth = {
     host: selectedServer.host,
@@ -241,6 +263,8 @@ const checkStatus = async () => {
   } catch (error) {
     console.error('Error checking status:', error);
     setOutput('Error: Network request failed. Check if backend is running.');
+  } finally {
+    setIsCheckingStatus(false);
   }
 };
 
@@ -250,17 +274,19 @@ const handleAddEntry = async (entry: DHCPEntry) => {
     return;
   }
 
-  const auth = {
-    host: selectedServer.host,
-    username: username,
-    password: password,
-  };
-
-  // Get the current server's type descriptions for context
-  const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
-  
-  const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname, currentTypeDescriptions);
+  setIsUpdatingConfig(true);
   try {
+    const auth = {
+      host: selectedServer.host,
+      username: username,
+      password: password,
+    };
+
+    // Get the current server's type descriptions for context
+    const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
+    
+    const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname, currentTypeDescriptions);
+    
     const response = await fetch('/api/update-dhcpd-conf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -272,15 +298,17 @@ const handleAddEntry = async (entry: DHCPEntry) => {
       openModal(`Error updating DHCP configuration: ${errorMessage}`);
       return;
     }
+    
+    openModal(`Successfully updated entry for ${entry.hostname}`);
+    fetchDhcpdConf();
+    resetAddEntryModal();
+    checkStatus();
   } catch (error) {
     console.error('Error updating DHCP configuration:', error);
     openModal('Error: Network request failed. Check if backend is running.');
+  } finally {
+    setIsUpdatingConfig(false);
   }
-  openModal(`Successfully updated entry for ${entry.hostname}`);
-  fetchDhcpdConf();
-  resetAddEntryModal();
-  checkStatus();
-  return;
 };
 
 const resetAddEntryModal = () => {
@@ -347,232 +375,347 @@ const handleDeleteEntry = async (hostname: string)=> {
   };
 
   return (
-      <div className="center">
-        <h1 className="text-3xl font-bold underline">DHCP Web View</h1>
-        <p>Welcome to the DHCP Web View application!</p>
-        <form className="max-w-lg mx-auto">
-          <label htmlFor="server-select" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Select Server:</label>
-          <select
-            id="server-select"
-            value={selectedServer.host}
-            onChange={(e) => setSelectedServer(servers.find(server => server.host === e.target.value) || {} as Server)}
-            className='mb-4 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-          >
-            {servers.map((server) => (
-              <option key={server.host} value={server.host}>
-                {server.name} ({server.host})
-              </option>
-            ))}
-          </select>
-          
-          {/* Subnet Selection - only show if server has subnets */}
-          {availableSubnets.length > 0 && (
-            <>
-              <label htmlFor="subnet-select" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Select Subnet:</label>
-              <select
-                id="subnet-select"
-                value={selectedSubnet?.name || ''}
-                onChange={(e) => {
-                  const subnet = availableSubnets.find(s => s.name === e.target.value);
-                  setSelectedSubnet(subnet || null);
-                  setSelectedType(''); // Reset type selection when subnet changes
-                }}
-                className='mb-4 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-              >
-                {availableSubnets.map((subnet) => (
-                  <option key={subnet.name} value={subnet.name}>
-                    {subnet.name} ({subnet.ipPrefix})
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-          
-          <div className='flex justify-between items-center mb-4'>
-            <label htmlFor="username" className='block mb-2 mr-2 text-sm font-medium text-gray-900 dark:text-white'>Username:</label>
-            <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className='mr-4 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-            />
-            <label htmlFor="password" className='block mb-2 mr-2 text-sm font-medium text-gray-900 dark:text-white'>Password:</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-            />
-          </div>
-            <div className="flex justify-end mb-4">
-            <button
-              type="button"
-              onClick={() => {
-              if (username && password) {
-                setIsLoggedIn(true);
-              }
-              }}
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Login
-            </button>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-6">
+              <div className="flex items-center">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">DHCP Web View</h1>
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Welcome to the DHCP Web View application!
+              </div>
             </div>
-        </form>
-        {/* Server Status */}
-        <h1 className='text-2xl font-bold mt-4 underline mb-4'>DHCP Server Status</h1>
-        <div className="flex justify-between items-center mx-auto max-w-lg">
-          <div className="flex items-center">
-            <h2 className='text-lg font-bold mr-4'>Service Status:</h2>
-            <div className={`w-5 h-5 rounded-full mr-1 ${serviceStatus === 'active' ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'}`}></div>
-            <span className='text-lg font-bold text-center'>
-              {serviceStatus}
-            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              checkStatus();
-            }}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Check Status
-          </button>
-        </div>
-        {/* Available IPs */}
-        <h1 className='text-2xl font-bold mt-4 underline mb-4'>Available IPs</h1>
-        <div className="flex flex-col justify-center items-center mx-auto max-w-lg">
-          <form>
-            <select className='mb-4 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            >
-              <option value="">Select a device type...</option>
-              {typeDescriptions.filter(type => type !== '').map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </form>
-          <button
-            type="button"
-            onClick={() => {
-              fetchDhcpdConf();
-            }}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Refresh IPs
-          </button>
-          <div className='text-sm text-gray-500 dark:text-gray-300 mt-2 bg-gray-50 dark:bg-gray-700 p-2 rounded-lg'>
-            Fixed IPs Parsed: {dhcpdConf.length} | Current Type: {selectedType || 'None selected'} | IPs in Range: {leaseArray.length}
-          </div>
-        </div>
+        </header>
 
-        {/* Leases Table */}
-        <div className="overflow-x-auto mx-auto max-w-2xl mt-4">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">IP Address</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Hostname</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-              {isLoadingIPs ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500 dark:text-gray-300">
-                    <div className="flex justify-center items-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                      <span className="ml-2">Loading IP addresses...</span>
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Server Configuration Card */}
+            <div className="lg:col-span-2">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Server Configuration</h2>
+                </div>
+                <div className="p-6">
+                  {isLoadingServers ? (
+                    <div className="animate-pulse">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
                     </div>
-                  </td>
-                </tr>
-              ) : (
-                leaseArray.map((item, index) => (
-                <tr key={index} className={item.status === 'Free' ? 'bg-green-50 dark:bg-green-900' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{item.ip}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.status === 'Free' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-                        : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                    }`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                    {item.status === 'Taken' ? (item.hostname || 'Unknown') : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {item.status === 'Free' && isLoggedIn ? (
-                      <button
-                        onClick={() => handleOpenAddEntryModal(item.ip, selectedType)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs"
-                      >
-                        Add Entry
-                      </button>
-                    ) : (
-                      <div className="flex justify-end mt-2 space-x-2">
-                        {item.status === 'Taken' && (
-                          <>
-                            <button onClick={() => handleEditEntry({ hostname: item.hostname, HWAddress: item.HWAddress, ip: item.ip, type: selectedType })} className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">Edit</button>
-                            <button onClick={() => handleDeleteEntry(item.hostname ?? '')} className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Delete</button>
-                          </>
-                        )}
+                  ) : (
+                    <form className="space-y-4">
+                      <div>
+                        <label htmlFor="server-select" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Select Server:</label>
+                        <select
+                          id="server-select"
+                          value={selectedServer.host}
+                          onChange={(e) => setSelectedServer(servers.find(server => server.host === e.target.value) || {} as Server)}
+                          className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
+                        >
+                          {servers.map((server) => (
+                            <option key={server.host} value={server.host}>
+                              {server.name} ({server.host})
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    )}
-                  </td>
-                </tr>
-              )))}
-            </tbody>
-          </table>
-          
-          {leaseArray.length === 0 && selectedType && (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-300">
-              No IP addresses found for {selectedType}
+                      
+                      {/* Subnet Selection - only show if server has subnets */}
+                      {availableSubnets.length > 0 && (
+                        <div>
+                          <label htmlFor="subnet-select" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Select Subnet:</label>
+                          <select
+                            id="subnet-select"
+                            value={selectedSubnet?.name || ''}
+                            onChange={(e) => {
+                              const subnet = availableSubnets.find(s => s.name === e.target.value);
+                              setSelectedSubnet(subnet || null);
+                              setSelectedType(''); // Reset type selection when subnet changes
+                            }}
+                            className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
+                          >
+                            {availableSubnets.map((subnet) => (
+                              <option key={subnet.name} value={subnet.name}>
+                                {subnet.name} ({subnet.ipPrefix})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              {/* Authentication Card */}
+              <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Authentication</h2>
+                </div>
+                <div className="p-6">
+                  <form className="space-y-4">
+                    <div>
+                      <label htmlFor="username" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Username:</label>
+                      <input
+                        type="text"
+                        id="username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
+                        placeholder="Enter username"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="password" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Password:</label>
+                      <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
+                        placeholder="Enter password"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className={`w-3 h-3 rounded-full mr-2 ${isLoggedIn ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {isLoggedIn ? 'Logged in' : 'Not logged in'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (username && password) {
+                            setIsLoggedIn(true);
+                          }
+                        }}
+                        disabled={!username || !password}
+                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded text-sm"
+                      >
+                        Login
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             </div>
-          )}
-          
-          {!selectedType && (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-300">
-              Please select a device type to view available IP addresses
+
+            {/* Main Content Area */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Server Status Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">DHCP Server Status</h2>
+                </div>
+                <div className="p-6">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <span className='text-sm font-medium text-gray-600 dark:text-gray-400 mr-3'>Service Status:</span>
+                      <div className={`w-4 h-4 rounded-full mr-2 ${serviceStatus === 'active' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
+                      <span className={`text-sm font-semibold ${serviceStatus === 'active' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {serviceStatus}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={checkStatus}
+                      disabled={isCheckingStatus || !isLoggedIn}
+                      className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded text-sm flex items-center"
+                    >
+                      {isCheckingStatus ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Checking...
+                        </>
+                      ) : (
+                        'Check Status'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {/* IP Management Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">IP Address Management</h2>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="device-type" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Device Type:</label>
+                      <select 
+                        id="device-type"
+                        className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
+                        value={selectedType}
+                        onChange={(e) => setSelectedType(e.target.value)}
+                      >
+                        <option value="">Select a device type...</option>
+                        {typeDescriptions.filter(type => type !== '').map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <button
+                        type="button"
+                        onClick={fetchDhcpdConf}
+                        disabled={isLoadingConfig || !isLoggedIn}
+                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded text-sm flex items-center"
+                      >
+                        {isLoadingConfig ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Loading...
+                          </>
+                        ) : (
+                          'Refresh IPs'
+                        )}
+                      </button>
+                      
+                      <div className='text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg'>
+                        <div>Fixed IPs: {dhcpdConf.length}</div>
+                        <div>Current Type: {selectedType || 'None selected'}</div>
+                        <div>IPs in Range: {leaseArray.length}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* IP Table Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">IP Address Table</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">IP Address</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Hostname</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                      {isLoadingIPs ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-8 text-center text-gray-500 dark:text-gray-300">
+                            <div className="flex justify-center items-center">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                              <span className="ml-2">Loading IP addresses...</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        leaseArray.map((item, index) => (
+                        <tr key={index} className={item.status === 'Free' ? 'bg-green-50 dark:bg-green-900' : ''}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{item.ip}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              item.status === 'Free' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
+                                : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                            {item.status === 'Taken' ? (item.hostname || 'Unknown') : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {item.status === 'Free' && isLoggedIn ? (
+                              <button
+                                onClick={() => handleOpenAddEntryModal(item.ip, selectedType)}
+                                disabled={isUpdatingConfig}
+                                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs"
+                              >
+                                Add Entry
+                              </button>
+                            ) : (
+                              <div className="flex justify-end mt-2 space-x-2">
+                                {item.status === 'Taken' && (
+                                  <>
+                                    <button 
+                                      onClick={() => handleEditEntry({ hostname: item.hostname, HWAddress: item.HWAddress, ip: item.ip, type: selectedType })} 
+                                      disabled={isUpdatingConfig}
+                                      className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteEntry(item.hostname ?? '')} 
+                                      disabled={isUpdatingConfig}
+                                      className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
+                                    >
+                                      Delete
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )))}
+                    </tbody>
+                  </table>
+                  
+                  {leaseArray.length === 0 && selectedType && !isLoadingIPs && (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-300">
+                      No IP addresses found for {selectedType}
+                    </div>
+                  )}
+                  
+                  {!selectedType && (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-300">
+                      Please select a device type to view available IP addresses
+                    </div>
+                  )}
+                </div>
+                
+                {/* Pagination Controls for Large Ranges */}
+                {isLargeRange && totalPages > 1 && (
+                  <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-center items-center space-x-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1 || isLoadingIPs}
+                        className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 text-sm"
+                      >
+                        Previous
+                      </button>
+                      
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages || isLoadingIPs}
+                        className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 text-sm"
+                      >
+                        Next
+                      </button>
+                    </div>
+                    
+                    {/* Info about pagination for large ranges */}
+                    <div className="text-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      Showing {itemsPerPage} IPs per page for large IP range ({leaseArray.length} IPs shown)
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-          
-          {/* Pagination Controls for Large Ranges */}
-          {isLargeRange && totalPages > 1 && (
-            <div className="flex justify-center items-center mt-4 space-x-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
-              >
-                Previous
-              </button>
-              
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                Page {currentPage} of {totalPages}
-              </span>
-              
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
-              >
-                Next
-              </button>
-            </div>
-          )}
-          
-          {/* Info about pagination for large ranges */}
-          {isLargeRange && (
-            <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Showing {itemsPerPage} IPs per page for large IP range ({leaseArray.length} IPs shown)
-            </div>
-          )}
-        </div>
+          </div>
+        </main>
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
             <div
