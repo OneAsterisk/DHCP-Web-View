@@ -198,14 +198,29 @@ function sortIPs(fixedIps: FixedIp[]){
 export function createLeaseArray(fixedIps: FixedIp[], typeOctet: number, ipPrefix: string){
     const totalIps = 255;
     const leaseArray = [];
+    
+    // Count the number of octets in the ipPrefix
+    const prefixOctets = ipPrefix.split('.').length;
+    
     for (let i = 1; i <= totalIps; i++) {
-        const ip: string = `${ipPrefix}.${typeOctet}.${i}`;
+        let ip: string;
+        
+        if (prefixOctets === 2) {
+            // Traditional format: ipPrefix has 2 octets, typeOctet becomes 3rd octet
+            // Example: "10.110" + "50" + "1" = "10.110.50.1"
+            ip = `${ipPrefix}.${typeOctet}.${i}`;
+        } else {
+            // New subnet format: ipPrefix already includes all network octets
+            // Example: "10.20.114" + "1" = "10.20.114.1"
+            ip = `${ipPrefix}.${i}`;
+        }
+        
         if (fixedIps.some(fixedIp => fixedIp.ip === ip)) {
             leaseArray.push({ip, status: 'Taken', hostname: fixedIps.find(fixedIp => fixedIp.ip === ip)?.hostName, HWAddress: fixedIps.find(fixedIp => fixedIp.ip === ip)?.HWAddress});
         } else {
             leaseArray.push({ip, status: 'Free', hostname: '', HWAddress: ''});
         }
-        }
+    }
     
     return leaseArray;
 }

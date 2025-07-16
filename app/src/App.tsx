@@ -3,11 +3,18 @@ import './App.css'
 import { createLeaseArray, deleteHostEntry, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
 import AddEntryModal from './components/AddEntryModal';
 
+type Subnet = {
+  name: string;
+  ipPrefix: string;
+  typeDescriptions: {[key: string]: number[]};
+}
+
 type Server = {
   name: string;
   host: string;
-  ipPrefix: string;
-  typeDescriptions: {[key: string]: number[]};
+  ipPrefix?: string; // Optional for backward compatibility
+  typeDescriptions?: {[key: string]: number[]}; // Optional for backward compatibility
+  subnets?: Subnet[]; // New subnet structure
 }
 
 interface DHCPEntry {
@@ -22,6 +29,7 @@ function App() {
   const [servers, setServers] = useState<Server[]>([]);
   const [serviceStatus, setServiceStatus] = useState<string>('Not Checked');
   const [selectedServer, setSelectedServer] = useState<Server>({} as Server);
+  const [selectedSubnet, setSelectedSubnet] = useState<Subnet | null>(null);
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -37,11 +45,21 @@ function App() {
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [currentMacAddress, setCurrentMacAddress] = useState<string>('');
   const [isEditMode, setIsEditMode] = useState(false);
+
 const typeDescriptions = useMemo(() => {
-  if (!selectedServer || !selectedServer.typeDescriptions) {
+  // Check if we have a selected subnet, otherwise fall back to server-level typeDescriptions
+  const descriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions;
+  if (!descriptions) {
     return [];
   }
-  return Object.keys(selectedServer.typeDescriptions);
+  return Object.keys(descriptions);
+}, [selectedServer, selectedSubnet]);
+
+const availableSubnets = useMemo(() => {
+  if (!selectedServer?.subnets) {
+    return [];
+  }
+  return selectedServer.subnets;
 }, [selectedServer]);
 
   const openModal = (message: string) => {
@@ -56,11 +74,28 @@ const typeDescriptions = useMemo(() => {
      setServers(data);
      if( data.length > 0) {
        setSelectedServer(data[0]);
+       // Auto-select first subnet if available
+       if (data[0].subnets && data[0].subnets.length > 0) {
+         setSelectedSubnet(data[0].subnets[0]);
+       } else {
+         setSelectedSubnet(null);
+       }
      }
    }
   }
    fetchServers();
 }, []);
+
+// Reset subnet selection when server changes
+useEffect(() => {
+  if (selectedServer.subnets && selectedServer.subnets.length > 0) {
+    setSelectedSubnet(selectedServer.subnets[0]);
+  } else {
+    setSelectedSubnet(null);
+  }
+  // Clear selected type when server/subnet changes
+  setSelectedType('');
+}, [selectedServer]);
 
 useEffect(() => {
   // Only fetch dhcpd.conf if user is logged in and has credentials
@@ -70,19 +105,24 @@ useEffect(() => {
 }, [selectedServer, isLoggedIn, username, password]);
 
 useEffect(() => {
-  if (selectedType && selectedType !== '' && selectedServer.typeDescriptions) {
-    const typeNumbers = selectedServer.typeDescriptions[selectedType];
-    if (typeNumbers && typeNumbers.length > 0) {
-      // Combine results from all type numbers in the range
-      const allLeases: LeaseArray[] = [];
-      typeNumbers.forEach(typeNumber => {
-        const leases = createLeaseArray(dhcpdConf, typeNumber, selectedServer.ipPrefix);
-        allLeases.push(...leases);  // Spread operator to combine arrays
-      });
-      setLeaseArray(allLeases);
+  if (selectedType && selectedType !== '') {
+    const descriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions;
+    const ipPrefix = selectedSubnet?.ipPrefix || selectedServer?.ipPrefix;
+    
+    if (descriptions && ipPrefix) {
+      const typeNumbers = descriptions[selectedType];
+      if (typeNumbers && typeNumbers.length > 0) {
+        // Combine results from all type numbers in the range
+        const allLeases: LeaseArray[] = [];
+        typeNumbers.forEach(typeNumber => {
+          const leases = createLeaseArray(dhcpdConf, typeNumber, ipPrefix);
+          allLeases.push(...leases);  // Spread operator to combine arrays
+        });
+        setLeaseArray(allLeases);
+      }
     }
   }
-}, [selectedType, dhcpdConf, selectedServer]);
+}, [selectedType, dhcpdConf, selectedServer, selectedSubnet]);
 
 const fetchDhcpdConf = async () => {
 if(!selectedServer) {
@@ -280,6 +320,30 @@ const handleDeleteEntry = async (hostname: string)=> {
               </option>
             ))}
           </select>
+          
+          {/* Subnet Selection - only show if server has subnets */}
+          {availableSubnets.length > 0 && (
+            <>
+              <label htmlFor="subnet-select" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Select Subnet:</label>
+              <select
+                id="subnet-select"
+                value={selectedSubnet?.name || ''}
+                onChange={(e) => {
+                  const subnet = availableSubnets.find(s => s.name === e.target.value);
+                  setSelectedSubnet(subnet || null);
+                  setSelectedType(''); // Reset type selection when subnet changes
+                }}
+                className='mb-4 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
+              >
+                {availableSubnets.map((subnet) => (
+                  <option key={subnet.name} value={subnet.name}>
+                    {subnet.name} ({subnet.ipPrefix})
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          
           <div className='flex justify-between items-center mb-4'>
             <label htmlFor="username" className='block mb-2 mr-2 text-sm font-medium text-gray-900 dark:text-white'>Username:</label>
             <input
