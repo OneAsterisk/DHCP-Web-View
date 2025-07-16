@@ -16,27 +16,60 @@ export type LeaseArray = {
 
 const dhcpdConfPath = '/etc/dhcp/dhcpd.conf';
 
+// Generic type descriptions for fallback when no server context is available
 export const getTypeDescription = (type: number): string => {
-    if (type === 10) return "Network Switches";
-    if (type >= 15 && type <= 16) return "Access Points";
-    if (type === 20) return "Servers";
+    // Video/Special Equipment
+    if (type >= 3 && type <= 9) return "Special Equipment";
+    
+    // Network Infrastructure
+    if (type >= 10 && type <= 14) return "Network Switches";
+    if (type >= 15 && type <= 19) return "Access Points";
+    if (type === 20 || (type >= 21 && type <= 29)) return "Servers";
+    
+    // Printers
     if (type >= 30 && type <= 39) return "Printers";
-    if (type >= 40 && type <= 49) return "Teacher Machines";
+    
+    // Staff/Teachers
+    if (type >= 40 && type <= 49) return "Staff Computers";
+    
+    // Students
     if (type >= 50 && type <= 69) {
-      if (type >= 50 && type <= 51) return "Student Machines - District";
-      if (type >= 52 && type <= 54) return "Student Machines - Elementary";
-      if (type >= 55 && type <= 57) return "Student Machines - Middle School";
-      if (type >= 58 && type <= 60) return "Student Machines - High School";
-      if (type >= 61 && type <= 69) return "Student Chromebooks";
+      if (type >= 50 && type <= 51) return "Student Computers - District";
+      if (type >= 52 && type <= 54) return "Student Computers - Elementary";
+      if (type >= 55 && type <= 57) return "Student Computers - Middle School";
+      if (type >= 58 && type <= 62) return "Student Computers - High School";
+      if (type >= 63 && type <= 69) return "Student Devices";
     }
-    if (type === 70) return "Networked Projectors";
-    if (type === 75) return "HVAC and Appliances";
-    if (type === 100) return "eSports - Nintendo Switches";
-    if (type >= 253 && type <= 254) return "Dynamic Pool";
+    
+    // Specialized Equipment
+    if (type === 70) return "Projectors";
+    if (type >= 75 && type <= 79) return "HVAC and Appliances";
+    if (type >= 100 && type <= 109) return "Gaming Equipment";
+    
+    // Special ranges
+    if (type >= 250 && type <= 255) return "Dynamic Pool";
+    
     return `Unknown Type ${type}`;
-  };
-// TODO: Add district to the parseDHCPDConf function
-export function parseDHCPDConf(dhcpdConf: string) {
+};
+
+// New function to get type description based on server context
+export const getTypeDescriptionFromContext = (
+    typeOctet: number, 
+    serverTypeDescriptions: { [key: string]: number[] }
+): string => {
+    // Find the type description that contains this octet number
+    for (const [typeName, octets] of Object.entries(serverTypeDescriptions)) {
+        if (octets.includes(typeOctet)) {
+            return typeName;
+        }
+    }
+    
+    // Fallback to generic description
+    return getTypeDescription(typeOctet);
+};
+
+// Updated parseDHCPDConf function to accept server context
+export function parseDHCPDConf(dhcpdConf: string, serverTypeDescriptions?: { [key: string]: number[] }) {
     const fixedIps: Array<{
       hostName: string;
       ip: string;
@@ -67,7 +100,7 @@ export function parseDHCPDConf(dhcpdConf: string) {
   
       const ip = ipMatch[1];
       const typeOctet = ip.split('.')[2];
-      const type = getTypeDescription(Number(typeOctet));
+      const type = getTypeDescriptionFromContext(Number(typeOctet), serverTypeDescriptions || {});
   
       // line number of the host keyword
       const lineNumber = cleaned.slice(0, m.index).split('\n').length;
@@ -126,9 +159,9 @@ export function parseDHCPDConf(dhcpdConf: string) {
     return lines.join('\n');
   }
 
-  export function updateHostEntry(dhcpdConf: string, hostName: string, newIP?: string, newMAC?: string, newHostName?: string) {
+  export function updateHostEntry(dhcpdConf: string, hostName: string, newIP?: string, newMAC?: string, newHostName?: string, serverTypeDescriptions?: { [key: string]: number[] }) {
     const lines = dhcpdConf.split('\n');
-    const hosts = parseDHCPDConf(dhcpdConf);
+    const hosts = parseDHCPDConf(dhcpdConf, serverTypeDescriptions);
     
     const target = hosts.find((host: FixedIp) => host.hostName === hostName);
     
@@ -182,13 +215,6 @@ export function parseDHCPDConf(dhcpdConf: string) {
 }
 
 
-//Filters by type and sorts by type octet
-// Maybe not needed?
-function filterByTypeAndSort(fixedIps: any[], type: string) {
-    const filteredIps = fixedIps.filter((ip) => ip.type === type);
-    const sortedIps = sortIPs(filteredIps);
-    return sortedIps;
-}
 //Sorts based on the type octec
 function sortIPs(fixedIps: FixedIp[]){
     const sortedIps = fixedIps.sort((a, b) => a.typeOctet?.localeCompare(b.typeOctet || '') || 0);
@@ -268,16 +294,5 @@ export function createVOIPLeaseArray(fixedIps: FixedIp[], ipPrefix: string, type
 export function calculateVOIPPages(typeNumbers: number[], itemsPerPage: number = 50): number {
     const totalIPs = typeNumbers.length * 255;
     return Math.ceil(totalIPs / itemsPerPage);
-}
-function ipCompare(ip1: string, ip2: string): number {
-    const octets1 = ip1.split('.').map(Number);
-    const octets2 = ip2.split('.').map(Number);
-    
-    for (let i = 0; i < 4; i++) {
-        if (octets1[i] !== octets2[i]) {
-            return octets1[i] - octets2[i];
-        }
-    }
-    return 0;
 }
 

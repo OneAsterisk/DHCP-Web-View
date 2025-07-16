@@ -1,6 +1,6 @@
 import { use, useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { createLeaseArray, createVOIPLeaseArray, calculateVOIPPages, deleteHostEntry, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
+import { createLeaseArray, createVOIPLeaseArray, calculateVOIPPages, deleteHostEntry, parseDHCPDConf, updateHostEntry, getTypeDescriptionFromContext, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
 import AddEntryModal from './components/AddEntryModal';
 
 type Subnet = {
@@ -192,7 +192,11 @@ if(!username || !password) {
     return;
   }
   const data = await response.json(); 
-  setDhcpdConf(parseDHCPDConf(data.output));
+  
+  // Get the current server's type descriptions for context
+  const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
+  
+  setDhcpdConf(parseDHCPDConf(data.output, currentTypeDescriptions));
   setDhcpdConfString(data.output);
 }
 
@@ -252,7 +256,10 @@ const handleAddEntry = async (entry: DHCPEntry) => {
     password: password,
   };
 
-  const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname);
+  // Get the current server's type descriptions for context
+  const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
+  
+  const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname, currentTypeDescriptions);
   try {
     const response = await fetch('/api/update-dhcpd-conf', {
       method: 'POST',
