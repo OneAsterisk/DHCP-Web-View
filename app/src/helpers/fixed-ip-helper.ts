@@ -195,14 +195,13 @@ function sortIPs(fixedIps: FixedIp[]){
     return sortedIps;
 }
 
-export function createLeaseArray(fixedIps: FixedIp[], typeOctet: number, ipPrefix: string){
-    const totalIps = 255;
+export function createLeaseArray(fixedIps: FixedIp[], typeOctet: number, ipPrefix: string, startRange: number = 1, endRange: number = 255){
     const leaseArray = [];
     
     // Count the number of octets in the ipPrefix
     const prefixOctets = ipPrefix.split('.').length;
     
-    for (let i = 1; i <= totalIps; i++) {
+    for (let i = startRange; i <= endRange; i++) {
         let ip: string;
         
         if (prefixOctets === 2) {
@@ -223,6 +222,52 @@ export function createLeaseArray(fixedIps: FixedIp[], typeOctet: number, ipPrefi
     }
     
     return leaseArray;
+}
+
+// New function for handling large ranges more efficiently with pagination
+export function createVOIPLeaseArray(fixedIps: FixedIp[], ipPrefix: string, typeNumbers: number[], page: number = 1, itemsPerPage: number = 50) {
+    const leaseArray = [];
+    
+    // Calculate total IPs across all type numbers
+    const totalIPs = typeNumbers.length * 255;
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage - 1, totalIPs - 1);
+    
+    let currentIndex = 0;
+    
+    for (const typeOctet of typeNumbers) {
+        for (let i = 1; i <= 255; i++) {
+            if (currentIndex >= startIndex && currentIndex <= endIndex) {
+                const ip = `${ipPrefix}.${typeOctet}.${i}`;
+                
+                if (fixedIps.some(fixedIp => fixedIp.ip === ip)) {
+                    leaseArray.push({
+                        ip, 
+                        status: 'Taken', 
+                        hostname: fixedIps.find(fixedIp => fixedIp.ip === ip)?.hostName, 
+                        HWAddress: fixedIps.find(fixedIp => fixedIp.ip === ip)?.HWAddress
+                    });
+                } else {
+                    leaseArray.push({ip, status: 'Free', hostname: '', HWAddress: ''});
+                }
+            }
+            
+            currentIndex++;
+            
+            // Early exit if we've collected enough IPs for this page
+            if (currentIndex > endIndex) {
+                return leaseArray;
+            }
+        }
+    }
+    
+    return leaseArray;
+}
+
+// Helper function to calculate total pages for large ranges
+export function calculateVOIPPages(typeNumbers: number[], itemsPerPage: number = 50): number {
+    const totalIPs = typeNumbers.length * 255;
+    return Math.ceil(totalIPs / itemsPerPage);
 }
 function ipCompare(ip1: string, ip2: string): number {
     const octets1 = ip1.split('.').map(Number);

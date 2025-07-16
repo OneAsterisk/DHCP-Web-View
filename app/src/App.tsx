@@ -1,6 +1,6 @@
 import { use, useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { createLeaseArray, deleteHostEntry, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
+import { createLeaseArray, createVOIPLeaseArray, calculateVOIPPages, deleteHostEntry, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
 import AddEntryModal from './components/AddEntryModal';
 
 type Subnet = {
@@ -45,6 +45,13 @@ function App() {
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [currentMacAddress, setCurrentMacAddress] = useState<string>('');
   const [isEditMode, setIsEditMode] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage] = useState<number>(50);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [isLargeRange, setIsLargeRange] = useState<boolean>(false);
+  const [isLoadingIPs, setIsLoadingIPs] = useState<boolean>(false);
 
 const typeDescriptions = useMemo(() => {
   // Check if we have a selected subnet, otherwise fall back to server-level typeDescriptions
@@ -97,6 +104,11 @@ useEffect(() => {
   setSelectedType('');
 }, [selectedServer]);
 
+// Reset pagination when type changes
+useEffect(() => {
+  setCurrentPage(1);
+}, [selectedType]);
+
 useEffect(() => {
   // Only fetch dhcpd.conf if user is logged in and has credentials
   if (isLoggedIn && selectedServer.host && username && password) {
@@ -106,23 +118,48 @@ useEffect(() => {
 
 useEffect(() => {
   if (selectedType && selectedType !== '') {
+    setIsLoadingIPs(true);
+    
     const descriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions;
     const ipPrefix = selectedSubnet?.ipPrefix || selectedServer?.ipPrefix;
     
     if (descriptions && ipPrefix) {
       const typeNumbers = descriptions[selectedType];
       if (typeNumbers && typeNumbers.length > 0) {
-        // Combine results from all type numbers in the range
-        const allLeases: LeaseArray[] = [];
-        typeNumbers.forEach(typeNumber => {
-          const leases = createLeaseArray(dhcpdConf, typeNumber, ipPrefix);
-          allLeases.push(...leases);  // Spread operator to combine arrays
-        });
-        setLeaseArray(allLeases);
+        // Check if this is a large range (more than 50 type numbers)
+        const isLargeRange = typeNumbers.length > 50;
+        setIsLargeRange(isLargeRange);
+        
+        if (isLargeRange) {
+          // For large ranges, use pagination
+          const totalPages = calculateVOIPPages(typeNumbers, itemsPerPage);
+          setTotalPages(totalPages);
+          
+          // Generate only the current page of IPs
+          const leases = createVOIPLeaseArray(dhcpdConf, ipPrefix, typeNumbers, currentPage, itemsPerPage);
+          setLeaseArray(leases);
+        } else {
+          // For normal ranges, generate all IPs
+          const allLeases: LeaseArray[] = [];
+          typeNumbers.forEach(typeNumber => {
+            const leases = createLeaseArray(dhcpdConf, typeNumber, ipPrefix);
+            allLeases.push(...leases);  // Spread operator to combine arrays
+          });
+          setLeaseArray(allLeases);
+          setTotalPages(1);
+        }
       }
     }
+    
+    setIsLoadingIPs(false);
+  } else {
+    // Reset pagination when no type is selected
+    setCurrentPage(1);
+    setTotalPages(1);
+    setIsLargeRange(false);
+    setLeaseArray([]);
   }
-}, [selectedType, dhcpdConf, selectedServer, selectedSubnet]);
+}, [selectedType, dhcpdConf, selectedServer, selectedSubnet, currentPage, itemsPerPage]);
 
 const fetchDhcpdConf = async () => {
 if(!selectedServer) {
@@ -436,7 +473,17 @@ const handleDeleteEntry = async (hostname: string)=> {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-              {leaseArray.map((item, index) => (
+              {isLoadingIPs ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500 dark:text-gray-300">
+                    <div className="flex justify-center items-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                      <span className="ml-2">Loading IP addresses...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                leaseArray.map((item, index) => (
                 <tr key={index} className={item.status === 'Free' ? 'bg-green-50 dark:bg-green-900' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{item.ip}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -471,7 +518,7 @@ const handleDeleteEntry = async (hostname: string)=> {
                     )}
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
           
@@ -484,6 +531,38 @@ const handleDeleteEntry = async (hostname: string)=> {
           {!selectedType && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-300">
               Please select a device type to view available IP addresses
+            </div>
+          )}
+          
+          {/* Pagination Controls for Large Ranges */}
+          {isLargeRange && totalPages > 1 && (
+            <div className="flex justify-center items-center mt-4 space-x-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
+              >
+                Previous
+              </button>
+              
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                Page {currentPage} of {totalPages}
+              </span>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
+              >
+                Next
+              </button>
+            </div>
+          )}
+          
+          {/* Info about pagination for large ranges */}
+          {isLargeRange && (
+            <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Showing {itemsPerPage} IPs per page for large IP range ({leaseArray.length} IPs shown)
             </div>
           )}
         </div>
