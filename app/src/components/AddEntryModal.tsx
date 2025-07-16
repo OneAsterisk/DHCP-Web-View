@@ -4,6 +4,7 @@ interface AddEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (entry: DHCPEntry) => void;
+  onDelete: (hostname: string) => void;
   ipAddress: string;
   currentHostname?: string;
   currentMacAddress?: string;
@@ -15,7 +16,7 @@ interface DHCPEntry {
   ipAddress: string;
 }
 
-const AddEntryModal: React.FC<AddEntryModalProps> = ({ isOpen, onClose, onSubmit, ipAddress, currentHostname, currentMacAddress }) => {
+const AddEntryModal: React.FC<AddEntryModalProps> = ({ isOpen, onClose, onSubmit, ipAddress, currentHostname, currentMacAddress, onDelete }) => {
   const [hostname, setHostname] = useState(currentHostname || '');
   const [macAddress, setMacAddress] = useState(currentMacAddress || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +60,10 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({ isOpen, onClose, onSubmit
     onClose();
   };
 
+  const handleDelete = () => {
+    onDelete(currentHostname || '');
+    onClose();
+  }
   if (!isOpen) return null;
 
   return (
@@ -124,6 +129,13 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({ isOpen, onClose, onSubmit
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300"
             >
               {isSubmitting ? 'Adding...' : currentHostname ? 'Update Entry' : 'Add Entry'}
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:bg-red-300"
+            >
+              Delete Entry
             </button>
           </div>
         </form>

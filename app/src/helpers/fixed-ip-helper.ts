@@ -84,6 +84,48 @@ export function parseDHCPDConf(dhcpdConf: string) {
     return sortIPs(fixedIps);
   }
 
+  export function deleteHostEntry(dhcpdConf: string, hostName: string): string {
+    const lines = dhcpdConf.split('\n');
+    
+    // Find the starting line of the host block in the original content
+    const hostBlockStartIndex = lines.findIndex(line => {
+      // Use a regex to robustly find the host entry, allowing for different spacing
+      const regex = new RegExp(`\\bhost\\s+${hostName}\\s*\\{`);
+      return regex.test(line);
+    });
+
+    if (hostBlockStartIndex === -1) {
+      console.error(`Host entry for "${hostName}" not found.`);
+      return dhcpdConf; // Return original content if host not found
+    }
+
+    // Find the corresponding closing brace
+    let braceCounter = 0;
+    let hostBlockEndIndex = -1;
+    for (let i = hostBlockStartIndex; i < lines.length; i++) {
+      if (lines[i].includes('{')) {
+        braceCounter++;
+      }
+      if (lines[i].includes('}')) {
+        braceCounter--;
+      }
+      if (braceCounter === 0) {
+        hostBlockEndIndex = i;
+        break;
+      }
+    }
+
+    if (hostBlockEndIndex === -1) {
+      console.error(`Could not find closing brace for host entry "${hostName}".`);
+      return dhcpdConf; // Return original content if something is wrong
+    }
+
+    // Remove the entire block
+    lines.splice(hostBlockStartIndex, hostBlockEndIndex - hostBlockStartIndex + 1);
+
+    return lines.join('\n');
+  }
+
   export function updateHostEntry(dhcpdConf: string, hostName: string, newIP?: string, newMAC?: string, newHostName?: string) {
     const lines = dhcpdConf.split('\n');
     const hosts = parseDHCPDConf(dhcpdConf);

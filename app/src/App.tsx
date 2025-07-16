@@ -1,6 +1,6 @@
 import { use, useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { createLeaseArray, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
+import { createLeaseArray, deleteHostEntry, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
 import AddEntryModal from './components/AddEntryModal';
 
 type Server = {
@@ -36,6 +36,7 @@ function App() {
   const [selectedIpForEntry, setSelectedIpForEntry] = useState<string>('');
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [currentMacAddress, setCurrentMacAddress] = useState<string>('');
+  const [isEditMode, setIsEditMode] = useState(false);
 const typeDescriptions = useMemo(() => {
   if (!selectedServer || !selectedServer.typeDescriptions) {
     return [];
@@ -193,30 +194,73 @@ const handleAddEntry = async (entry: DHCPEntry) => {
   }
   openModal(`Successfully updated entry for ${entry.hostname}`);
   fetchDhcpdConf();
+  resetAddEntryModal();
+  checkStatus();
+  return;
+};
+
+const resetAddEntryModal = () => {
   setIsAddEntryModalOpen(false);
   setCurrentHostname('');
   setCurrentMacAddress('');
   setSelectedIpForEntry('');
   setSelectedType('');
-  setIsAddEntryModalOpen(false);
-  checkStatus();
-  return;
-};
+  setIsEditMode(false);
+}
 
-const openAddEntryModal = (ipAddress: string, currentHostname?: string, currentMacAddress?: string) => {
-  setSelectedIpForEntry(ipAddress);
+const handleEditEntry = (entry: any) => {
+  setIsEditMode(true);
+  setCurrentHostname(entry.hostname);
+  setCurrentMacAddress(entry.HWAddress?.toUpperCase() || '');
+  setSelectedIpForEntry(entry.ip);
+  setSelectedType(entry.type.split(" ")[0]);
   setIsAddEntryModalOpen(true);
 };
 
-useEffect(() => {
-  // Only run if user is logged in and has selected a server
-  if (!isLoggedIn || !selectedServer.host || !username || !password) {
-    return;
-  }
-  
-  checkStatus();
-}, [selectedServer, isLoggedIn, username, password]);
+const handleDeleteEntry = async (hostname: string)=> {
+    console.log('hostname',hostname);
+    const updatedDhcpdConf = deleteHostEntry(dhcpdConfString, hostname);
+    console.log('updatedDhcpdConf',updatedDhcpdConf);
+    const auth = {
+      host: selectedServer.host,
+      username: username,
+      password: password,
+    };
 
+    try {
+      const response = await fetch('/api/update-dhcpd-conf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auth, dhcpdConf: updatedDhcpdConf }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
+        openModal(`Error updating DHCP configuration: ${errorMessage}`);
+        return;
+      }
+    } catch (error) {
+      console.error('Error updating DHCP configuration:', error);
+      openModal('Error: Network request failed. Check if backend is running.');
+    }
+    openModal(`Successfully deleted entry for ${hostname}`);
+    fetchDhcpdConf();
+    resetAddEntryModal();
+    checkStatus();
+    return;
+
+  }
+
+  const handleOpenAddEntryModal = (ip: string, type: string, hostname?: string, macAddress?: string) => {
+    if (hostname && macAddress) {
+      handleEditEntry({ hostname, HWAddress: macAddress, ip, type });
+    } else {
+      setIsEditMode(false);
+      setSelectedIpForEntry(ip);
+      setSelectedType(type.split(" ")[0]);
+      setIsAddEntryModalOpen(true);
+    }
+  };
 
   return (
       <div className="center">
@@ -346,22 +390,20 @@ useEffect(() => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {item.status === 'Free' && isLoggedIn ? (
                       <button
-                        onClick={() => openAddEntryModal(item.ip)}
+                        onClick={() => handleOpenAddEntryModal(item.ip, selectedType)}
                         className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs"
                       >
                         Add Entry
                       </button>
                     ) : (
-                      <button
-                        onClick={() => {
-                          setCurrentHostname(item.hostname || '');
-                          setCurrentMacAddress(item.HWAddress?.toUpperCase() || '');
-                          openAddEntryModal(item.ip)}
-                        }
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs"
-                      >
-                        Change Entry
-                      </button>
+                      <div className="flex justify-end mt-2 space-x-2">
+                        {item.status === 'Taken' && (
+                          <>
+                            <button onClick={() => handleEditEntry({ hostname: item.hostname, HWAddress: item.HWAddress, ip: item.ip, type: selectedType })} className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">Edit</button>
+                            <button onClick={() => handleDeleteEntry(item.hostname ?? '')} className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Delete</button>
+                          </>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -404,6 +446,7 @@ useEffect(() => {
           isOpen={isAddEntryModalOpen}
           onClose={() => setIsAddEntryModalOpen(false)}
           onSubmit={handleAddEntry}
+          onDelete={handleDeleteEntry}
           ipAddress={selectedIpForEntry}
           currentHostname={currentHostname}
           currentMacAddress={currentMacAddress}

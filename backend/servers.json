@@ -60,18 +60,87 @@
 {
     "name": "CCISD/CTE/REMC1",
     "host": "dhcp.remc1.adremc1.org",
-    "ipPrefix": "172.17",
-    "typeDescriptions": {
-        "Video Conferencing": [3],
-        "Projectors": [4],
-        "Switches": [10],
-        "Access Points": [16],
-        "Servers": [20],
-        "Printers": [30],
-        "Staff Computers": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
-        "Student Computers": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
-        "Dynamic Pool": [253, 254]
-    }
+    "subnets": [
+        {
+            "name": "CCISD Subnet",
+            "ipPrefix": "172.17",
+            "typeDescriptions": {
+                "Video Conferencing": [3],
+                "Projectors": [4],
+                "SPOT Cart": [5],
+                "Switches": [10],
+                "Access Points": [16],
+                "Servers": [20],
+                "Printers": [30],
+                "Staff Computers": [40, 41, 42, 43, 44],
+                "Student Computers": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
+                "Dynamic Pool": [253, 254]
+            }
+        },
+        {
+            "name": "DMZ Subnet",
+            "ipPrefix": "172.16",
+            "typeDescriptions": {
+                "Servers": [20],
+                "Dynamic Pool": [253, 254]
+            }
+        },
+        {
+            "name": "VOIP Subnet",
+            "ipPrefix": "172.18",
+            "typeDescriptions": {
+                "VOIP Devices": [10],
+                "Servers": [20]
+            }
+        },
+        {
+            "name": "REMC1 Subnet",
+            "ipPrefix": "172.19",
+            "typeDescriptions": {
+                "Switches": [10, 11],
+                "Servers": [20],
+                "Printers": [30],
+                "Staff": [40, 42, 50],
+                "Dynamic Pool": [253, 254]
+            }
+        },
+        {
+            "name": "Guest Subnet",
+            "ipPrefix": "172.31",
+            "typeDescriptions": {
+                "Guest Devices": [2, 3]
+            }
+        },
+        {
+            "name": "Security Subnet",
+            "ipPrefix": "10.20",
+            "typeDescriptions": {
+                "Security Cameras": [56],
+                "Door Controllers": [57]
+            }
+        },
+        {
+            "name": "Student Subnet",
+            "ipPrefix": "10.20",
+            "typeDescriptions": {
+                "Dynamic Pool": [202, 203]
+            }
+        },
+        {
+            "name": "Testing Subnet",
+            "ipPrefix": "10.20",
+            "typeDescriptions": {
+                "Testing Devices": [90, 91]
+            }
+        },
+        {
+            "name": "NEW REMC1-DMZ",
+            "ipPrefix": "10.22",
+            "typeDescriptions": {
+                "DMZ Devices": [0, 1, 2, 3]
+            }
+        }
+    ]
 },
 {
     "name": "CLK",

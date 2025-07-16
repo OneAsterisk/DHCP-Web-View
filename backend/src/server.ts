@@ -180,7 +180,7 @@ app.listen(PORT, () => {
     console.log(`   GET  /api/servers`);
     console.log(`   POST /api/status`);
     console.log(`   POST /api/leases`);
-    console.log(`   POST /api/add-dhcp-entry`);
     console.log(`   POST /api/dhcpd-conf`);
     console.log(`   POST /api/update-dhcpd-conf`);
+    console.log(`⚠️ POST /api/delete-dhcp-entry //in progress ⚠️`); 
 });
