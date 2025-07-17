@@ -12,8 +12,11 @@ function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-6">
               <div className="flex items-center">
-              <Link to="/" className="text-3xl font-bold text-gray-900 dark:text-white">DHCP Web View</Link>
-            </div>
+                <Link to="/" className="flex items-center space-x-3 text-3xl font-bold text-gray-900 dark:text-white">
+                  <img src="/REMC1.png" alt="REMC1" className="w-10 h-10" />
+                  <span>DHCP Web View</span>
+                </Link>
+              </div>
             <nav className="flex items-center space-x-4">
               <Link to="/" className="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
                 Dashboard

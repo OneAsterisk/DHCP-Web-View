@@ -8,6 +8,20 @@ import { NodeSSH } from 'node-ssh';
 import dhcpdLeases from 'dhcpd-leases';
 import { logActivity } from './logger';
 
+// Middleware to decode Base64 password from the request body
+const decodePassword = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.body && req.body.auth && req.body.auth.password) {
+        try {
+            const decodedPassword = Buffer.from(req.body.auth.password, 'base64').toString('utf8');
+            req.body.auth.password = decodedPassword;
+        } catch (e) {
+            // This will catch errors from invalid Base64 strings
+            return res.status(400).json({ error: 'Invalid password encoding in request.' });
+        }
+    }
+    next();
+};
+
 interface ServerSSHConfig {
     host: string;
     username: string;
@@ -59,7 +73,7 @@ app.get('/api/servers', async (req, res) => {
     }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', decodePassword, async (req, res) => {
     const { auth } = req.body;
     try {
         // Run a simple, non-destructive command to validate credentials
@@ -73,7 +87,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-app.post('/api/dhcpd-conf', async (req, res) => {
+app.post('/api/dhcpd-conf', decodePassword, async (req, res) => {
     const { auth, command } = req.body;
     try {
         const result = await runSSHCommand(auth, command);
@@ -103,7 +117,7 @@ export async function runSSHCommand(
     return stdout;
   }
 
-app.post('/api/update-dhcpd-conf', async (req, res) => {
+app.post('/api/update-dhcpd-conf', decodePassword, async (req, res) => {
     const { auth, dhcpdConf, action, details } = req.body;
   
     try {
@@ -141,7 +155,7 @@ app.post('/api/update-dhcpd-conf', async (req, res) => {
     }
 });
 
-app.post('/api/status', async (req, res) => {
+app.post('/api/status', decodePassword, async (req, res) => {
 const { auth, command } = req.body;
     try {
         const result = await runSSHCommand(auth, command);
@@ -180,7 +194,7 @@ app.get('/api/logs', async (req, res) => {
     }
 });
 
-app.post('/api/leases', async (req, res) => {
+app.post('/api/leases', decodePassword, async (req, res) => {
     const { auth, command } = req.body;
     try {
         const result = await runSSHCommand(auth, command);
@@ -207,11 +221,14 @@ app.post('/api/leases', async (req, res) => {
 dotenv.config();
 
 // Set the port from environment variable or default to 3001
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
+const HOST = '0.0.0.0'; // Listen on all network interfaces
 
 // Start the server
-app.listen(PORT, () => {
-    console.log(`🚀 DHCP Web View Backend server is running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+    console.log(`🚀 DHCP Web View Backend server is running!`);
+    console.log(`   - Local:   http://localhost:${PORT}`);
+    console.log(`   - Network: http://<YOUR_LOCAL_IP>:${PORT}`); // Replace <YOUR_LOCAL_IP> with your actual IP
     console.log(`📡 API endpoints available:`);
     console.log(`   GET  /api/servers`);
     console.log(`   POST /api/login`);

@@ -196,7 +196,7 @@ if(!username || !password) {
     const auth = {
       host: selectedServer.host,
       username: username,
-      password: password,
+      password: btoa(password), // Encode password
     };
     const command = 'cat /etc/dhcp/dhcpd.conf';
     const response = await fetch('/api/dhcpd-conf', {
@@ -235,7 +235,7 @@ const checkStatus = async () => {
   const auth = {
     host: selectedServer.host,
     username: username,
-    password: password,
+    password: btoa(password), // Encode password
   };
   const command = 'systemctl status isc-dhcp-server';
 
@@ -281,7 +281,7 @@ const handleLogin = async () => {
     const auth = {
       host: selectedServer.host,
       username: username,
-      password: password,
+      password: btoa(password), // Encode password
     };
     const response = await fetch('/api/login', {
       method: 'POST',
@@ -314,7 +314,7 @@ const handleAddEntry = async (entry: DHCPEntry) => {
     const auth = {
       host: selectedServer.host,
       username: username,
-      password: password,
+      password: btoa(password), // Encode password
     };
 
     // Get the current server's type descriptions for context
@@ -385,7 +385,7 @@ const confirmDelete = async ()=> {
     const auth = {
       host: selectedServer.host,
       username: username,
-      password: password,
+      password: btoa(password), // Encode password
     };
     const action = 'Delete Entry';
     const details = { hostname: hostnameToDelete };
