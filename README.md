@@ -17,7 +17,7 @@ This application provides a user-friendly way for network administrators to inte
 - **Modify Entries:**
     - **Add New Entries:** Click on a "Free" IP address to open a form and create a new fixed-IP reservation.
     - **Update Existing Entries:** Modify the hostname or MAC address for an existing reservation.
-    - **WIP - Deleting Entries:** Delete an entry, free-ing it up
+    - **Deleting Entries:** Delete an entry, free-ing it up
 - **Secure Connection:** All operations on the remote server are performed securely over SSH.
 - **Atomic File Operations:** When updating the configuration, the application first writes to a temporary file and then moves it into place to prevent corruption.
 - **Automatic Backups:** Automatically creates a timestamped backup of the `dhcpd.conf` file before every change.

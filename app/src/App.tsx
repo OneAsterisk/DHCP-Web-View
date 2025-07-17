@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { createLeaseArray, createVOIPLeaseArray, calculateVOIPPages, deleteHostEntry, parseDHCPDConf, updateHostEntry, type FixedIp, type LeaseArray } from './helpers/fixed-ip-helper';
 import AddEntryModal from './components/AddEntryModal';
+import { Toaster, toast } from 'react-hot-toast';
+import ConfirmationModal from './components/ConfirmationModal';
 
 type Subnet = {
   name: string;
@@ -44,6 +46,8 @@ function App() {
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [currentMacAddress, setCurrentMacAddress] = useState<string>('');
   const [, setIsEditMode] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState<boolean>(false);
+  const [hostnameToDelete, setHostnameToDelete] = useState<string>('');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -176,15 +180,15 @@ useEffect(() => {
 
 const fetchDhcpdConf = async () => {
 if(!selectedServer) {
-  openModal('Please select a server');
+  toast.error('Please select a server');
   return;
 }
 if(!isLoggedIn) {
-  openModal('Please login to fetch the dhcpd.conf');
+  toast.error('Please login to fetch the dhcpd.conf');
   return;
 }
 if(!username || !password) {
-  openModal('Please provide your server credentials to fetch the dhcpd.conf');
+  toast.error('Please provide your server credentials to fetch the dhcpd.conf');
   return;
 }
   setIsLoadingConfig(true);
@@ -203,7 +207,7 @@ if(!username || !password) {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
       const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-      openModal(`Error fetching dhcpd.conf: ${errorMessage}`);
+      toast.error(`Error fetching dhcpd.conf: ${errorMessage}`);
       return;
     }
     const data = await response.json(); 
@@ -215,7 +219,7 @@ if(!username || !password) {
     setDhcpdConfString(data.output);
   } catch (error) {
     console.error('Error fetching dhcpd.conf:', error);
-    openModal('Error: Network request failed. Check if backend is running.');
+    toast.error('Error: Network request failed. Check if backend is running.');
   } finally {
     setIsLoadingConfig(false);
   }
@@ -223,7 +227,7 @@ if(!username || !password) {
 
 const checkStatus = async () => {
   if (!isLoggedIn || !selectedServer || !username || !password) {
-    openModal('Please provide your server credentials to check the service status');
+    toast.error('Please provide your server credentials to check the service status');
     return;
   }
   setIsCheckingStatus(true);
@@ -270,7 +274,7 @@ const checkStatus = async () => {
 
 const handleAddEntry = async (entry: DHCPEntry) => {
   if (!isLoggedIn || !selectedServer.host || !username || !password) {
-    openModal('Please provide your server credentials to add an entry');
+    toast.error('Please provide your server credentials to add an entry');
     return;
   }
 
@@ -295,17 +299,17 @@ const handleAddEntry = async (entry: DHCPEntry) => {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
       const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-      openModal(`Error updating DHCP configuration: ${errorMessage}`);
+      toast.error(`Error updating DHCP configuration: ${errorMessage}`);
       return;
     }
     
-    openModal(`Successfully updated entry for ${entry.hostname}`);
+    toast.success(`Successfully updated entry for ${entry.hostname}`);
     fetchDhcpdConf();
     resetAddEntryModal();
     checkStatus();
   } catch (error) {
     console.error('Error updating DHCP configuration:', error);
-    openModal('Error: Network request failed. Check if backend is running.');
+    toast.error('Error: Network request failed. Check if backend is running.');
   } finally {
     setIsUpdatingConfig(false);
   }
@@ -330,9 +334,14 @@ const handleEditEntry = (entry: any) => {
 };
 
 const handleDeleteEntry = async (hostname: string)=> {
-    console.log('hostname',hostname);
-    const updatedDhcpdConf = deleteHostEntry(dhcpdConfString, hostname);
-    console.log('updatedDhcpdConf',updatedDhcpdConf);
+  setHostnameToDelete(hostname);
+  setIsConfirmModalOpen(true);
+}
+
+const confirmDelete = async ()=> {
+    if (!hostnameToDelete) return;
+
+    const updatedDhcpdConf = deleteHostEntry(dhcpdConfString, hostnameToDelete);
     const auth = {
       host: selectedServer.host,
       username: username,
@@ -348,17 +357,19 @@ const handleDeleteEntry = async (hostname: string)=> {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-        openModal(`Error updating DHCP configuration: ${errorMessage}`);
+        toast.error(`Error updating DHCP configuration: ${errorMessage}`);
         return;
       }
     } catch (error) {
       console.error('Error updating DHCP configuration:', error);
-      openModal('Error: Network request failed. Check if backend is running.');
+      toast.error('Error: Network request failed. Check if backend is running.');
     }
-    openModal(`Successfully deleted entry for ${hostname}`);
+    toast.success(`Successfully deleted entry for ${hostnameToDelete}`);
     fetchDhcpdConf();
     resetAddEntryModal();
     checkStatus();
+    setIsConfirmModalOpen(false);
+    setHostnameToDelete('');
     return;
 
   }
@@ -376,6 +387,7 @@ const handleDeleteEntry = async (hostname: string)=> {
 
   return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Toaster position="top-center" reverseOrder={false} />
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -743,6 +755,13 @@ const handleDeleteEntry = async (hostname: string)=> {
           ipAddress={selectedIpForEntry}
           currentHostname={currentHostname}
           currentMacAddress={currentMacAddress}
+        />
+        <ConfirmationModal
+          isOpen={isConfirmModalOpen}
+          onClose={() => setIsConfirmModalOpen(false)}
+          onConfirm={confirmDelete}
+          title="Confirm Deletion"
+          message={`Are you sure you want to delete the entry for ${hostnameToDelete}? This action cannot be undone.`}
         />
       </div>
   )
