@@ -7,7 +7,7 @@ export default async function handler(
   res: VercelResponse,
 ) {
   try {
-    const filePath = path.join(process.cwd(), '/public/servers.json');
+    const filePath = path.join(process.cwd(), '/servers.json');
     const fileContent = await fs.readFile(filePath, 'utf-8');
     res.json(JSON.parse(fileContent));
   } catch (error) {
