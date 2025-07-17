@@ -237,5 +237,5 @@ app.listen(PORT, HOST, () => {
     console.log(`   POST /api/dhcpd-conf`);
     console.log(`   POST /api/update-dhcpd-conf`);
     console.log(`   GET  /api/logs`);
-    console.log(`⚠️ POST /api/delete-dhcp-entry //in progress ⚠️`); 
+    console.log(`   POST /api/delete-dhcp-entry`); 
 });
