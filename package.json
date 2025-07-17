@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@vercel/node": "^5.3.6",
+    "dhcpd-leases": "^0.1.2",
+    "node-ssh": "^13.2.1"
+  }
+}

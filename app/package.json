@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
+    "@vercel/node": "^2.3.0",
+    "dhcpd-leases": "^0.1.2",
+    "node-ssh": "^13.2.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
