@@ -637,8 +637,8 @@ const confirmDelete = async ()=> {
                       <tr>
                         <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">IP Address</th>
                         <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Status</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300 hidden sm:table-cell">Hostname</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
+                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Hostname</th>
+                        <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -664,10 +664,10 @@ const confirmDelete = async ()=> {
                               {item.status}
                             </span>
                           </td>
-                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300 hidden sm:table-cell">
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300">
                             {item.status === 'Taken' ? (item.hostname || 'Unknown') : '-'}
                           </td>
-                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
+                          <td className="px-3 sm:px-6 py-2 text-center sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                             {item.status === 'Free' && isLoggedIn ? (
                               <button
                                 onClick={() => handleOpenAddEntryModal(item.ip, selectedType)}
@@ -677,7 +677,7 @@ const confirmDelete = async ()=> {
                                 Add Entry
                               </button>
                             ) : (
-                              <div className="flex justify-end mt-2 space-x-2">
+                              <div className="flex justify-center mt-2 space-x-2">
                                 {item.status === 'Taken' && (
                                   <>
                                     <button 
