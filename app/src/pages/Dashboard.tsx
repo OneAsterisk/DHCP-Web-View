@@ -430,11 +430,11 @@ const confirmDelete = async ()=> {
   return (
       <>
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             
             {/* Server Configuration Card */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-3 order-1 lg:order-1">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Server Configuration</h2>
@@ -532,7 +532,7 @@ const confirmDelete = async ()=> {
                         type="button"
                         onClick={handleLogin}
                         disabled={!username || !password}
-                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded text-sm"
+                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded text-xs sm:text-sm"
                       >
                         Login
                       </button>
@@ -543,7 +543,7 @@ const confirmDelete = async ()=> {
             </div>
 
             {/* Main Content Area */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-3 order-1 lg:order-2 space-y-4 sm:space-y-6">
               {/* Server Status Card */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -562,7 +562,7 @@ const confirmDelete = async ()=> {
                       type="button"
                       onClick={checkStatus}
                       disabled={isCheckingStatus || !isLoggedIn}
-                      className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded text-sm flex items-center"
+                      className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded text-xs sm:text-sm flex items-center"
                     >
                       {isCheckingStatus ? (
                         <>
@@ -603,7 +603,7 @@ const confirmDelete = async ()=> {
                         type="button"
                         onClick={fetchDhcpdConf}
                         disabled={isLoadingConfig || !isLoggedIn}
-                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded text-sm flex items-center"
+                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded text-xs sm:text-sm flex items-center"
                       >
                         {isLoadingConfig ? (
                           <>
@@ -615,9 +615,9 @@ const confirmDelete = async ()=> {
                         )}
                       </button>
                       
-                      <div className='text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg'>
+                      <div className='text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg'>
                         <div>Fixed IPs: {dhcpdConf.length}</div>
-                        <div>Current Type: {selectedType || 'None selected'}</div>
+                        <div className="hidden sm:block">Current Type: {selectedType || 'None selected'}</div>
                         <div>IPs in Range: {leaseArray.length}</div>
                       </div>
                     </div>
@@ -630,14 +630,15 @@ const confirmDelete = async ()=> {
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">IP Address Table</h2>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">IP Address</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Hostname</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
+                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">IP Address</th>
+                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Status</th>
+                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300 hidden sm:table-cell">Hostname</th>
+                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -653,9 +654,9 @@ const confirmDelete = async ()=> {
                       ) : (
                         leaseArray.map((item, index) => (
                         <tr key={index} className={item.status === 'Free' ? 'bg-green-50 dark:bg-green-900' : ''}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">{item.ip}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300">{item.ip}</td>
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
+                            <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${
                               item.status === 'Free' 
                                 ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                                 : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
@@ -663,15 +664,15 @@ const confirmDelete = async ()=> {
                               {item.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300 hidden sm:table-cell">
                             {item.status === 'Taken' ? (item.hostname || 'Unknown') : '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                             {item.status === 'Free' && isLoggedIn ? (
                               <button
                                 onClick={() => handleOpenAddEntryModal(item.ip, selectedType)}
                                 disabled={isUpdatingConfig}
-                                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs"
+                                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-2 py-1 sm:px-3 rounded text-xs"
                               >
                                 Add Entry
                               </button>
@@ -682,14 +683,14 @@ const confirmDelete = async ()=> {
                                     <button 
                                       onClick={() => handleEditEntry({ hostname: item.hostname, HWAddress: item.HWAddress, ip: item.ip, type: selectedType })} 
                                       disabled={isUpdatingConfig}
-                                      className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
+                                      className="px-1.5 sm:px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
                                     >
                                       Edit
                                     </button>
                                     <button 
                                       onClick={() => handleDeleteEntry(item.hostname ?? '')} 
                                       disabled={isUpdatingConfig}
-                                      className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
+                                      className="px-1.5 sm:px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
                                     >
                                       Delete
                                     </button>
@@ -702,6 +703,7 @@ const confirmDelete = async ()=> {
                       )))}
                     </tbody>
                   </table>
+                  </div>
                   
                   {leaseArray.length === 0 && selectedType && !isLoadingIPs && (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-300">
@@ -723,19 +725,20 @@ const confirmDelete = async ()=> {
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                         disabled={currentPage === 1 || isLoadingIPs}
-                        className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 text-sm"
+                        className="px-2 sm:px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 text-xs sm:text-sm"
                       >
-                        Previous
+                        <span className="hidden sm:inline">Previous</span>
+                        <span className="sm:hidden">Prev</span>
                       </button>
                       
-                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                      <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                         Page {currentPage} of {totalPages}
                       </span>
                       
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages || isLoadingIPs}
-                        className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 text-sm"
+                        className="px-2 sm:px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 text-xs sm:text-sm"
                       >
                         Next
                       </button>
@@ -752,9 +755,9 @@ const confirmDelete = async ()=> {
           </div>
         </main>
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
             <div
-              className="p-6 rounded-lg text-white"
+              className="p-4 sm:p-6 rounded-lg text-white max-w-sm w-full"
               style={{
                 background: 'radial-gradient(circle, #0f172a 0%, #1e293b 100%)',
               }}
