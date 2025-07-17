@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import LogEntry from '../components/LogEntry';
 
 const AdminLog: React.FC = () => {
   const [logs, setLogs] = useState<string>('Loading logs...');
@@ -29,7 +30,7 @@ const AdminLog: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Activity Log</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Activity Log</h1>
         <button
           onClick={fetchLogs}
           disabled={isLoading}
@@ -45,12 +46,10 @@ const AdminLog: React.FC = () => {
           )}
         </button>
       </div>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <pre className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200 font-mono overflow-x-auto">
-            {logs}
-          </pre>
-        </div>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        {logs.split('\n').filter(log => log.trim() !== '').reverse().map((log, index) => (
+          <LogEntry key={index} log={log} />
+        ))}
       </div>
     </div>
   );

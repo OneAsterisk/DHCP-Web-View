@@ -272,6 +272,37 @@ const checkStatus = async () => {
   }
 };
 
+const handleLogin = async () => {
+  if (!username || !password) {
+    toast.error('Please enter both username and password.');
+    return;
+  }
+  try {
+    const auth = {
+      host: selectedServer.host,
+      username: username,
+      password: password,
+    };
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth }),
+    });
+
+    if (response.ok) {
+      setIsLoggedIn(true);
+      toast.success('Login successful!');
+    } else {
+      const errorData = await response.json();
+      toast.error(errorData.error || 'Login failed.');
+      setIsLoggedIn(false);
+    }
+  } catch (error) {
+    toast.error('An error occurred during login.');
+    setIsLoggedIn(false);
+  }
+};
+
 const handleAddEntry = async (entry: DHCPEntry) => {
   if (!isLoggedIn || !selectedServer.host || !username || !password) {
     toast.error('Please provide your server credentials to add an entry');
@@ -289,12 +320,21 @@ const handleAddEntry = async (entry: DHCPEntry) => {
     // Get the current server's type descriptions for context
     const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
     
+    const isEditMode = !!currentHostname;
+    const action = isEditMode ? 'Edit Entry' : 'Add Entry';
+    const details = {
+      ipAddress: entry.ipAddress,
+      hostname: entry.hostname,
+      macAddress: entry.macAddress,
+      previousHostname: isEditMode ? currentHostname : undefined,
+    };
+    
     const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname, currentTypeDescriptions);
     
     const response = await fetch('/api/update-dhcpd-conf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth, dhcpdConf: updatedDhcpdConf }),
+      body: JSON.stringify({ auth, dhcpdConf: updatedDhcpdConf, action, details }),
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -347,12 +387,14 @@ const confirmDelete = async ()=> {
       username: username,
       password: password,
     };
+    const action = 'Delete Entry';
+    const details = { hostname: hostnameToDelete };
 
     try {
       const response = await fetch('/api/update-dhcpd-conf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auth, dhcpdConf: updatedDhcpdConf }),
+        body: JSON.stringify({ auth, dhcpdConf: updatedDhcpdConf, action, details }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -488,11 +530,7 @@ const confirmDelete = async ()=> {
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (username && password) {
-                            setIsLoggedIn(true);
-                          }
-                        }}
+                        onClick={handleLogin}
                         disabled={!username || !password}
                         className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded text-sm"
                       >

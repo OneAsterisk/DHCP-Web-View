@@ -59,6 +59,20 @@ app.get('/api/servers', async (req, res) => {
     }
 });
 
+app.post('/api/login', async (req, res) => {
+    const { auth } = req.body;
+    try {
+        // Run a simple, non-destructive command to validate credentials
+        await runSSHCommand(auth, 'echo "Login successful"');
+        await logActivity(auth.username, `Logged in to server ${auth.host}`);
+        res.json({ message: 'Login successful' });
+    } catch (error: any) {
+        console.error('Login failed:', error.message);
+        await logActivity(auth.username, `Failed login attempt to server ${auth.host}`);
+        res.status(401).json({ error: 'Authentication failed. Please check your credentials.' });
+    }
+});
+
 app.post('/api/dhcpd-conf', async (req, res) => {
     const { auth, command } = req.body;
     try {
@@ -90,7 +104,7 @@ export async function runSSHCommand(
   }
 
 app.post('/api/update-dhcpd-conf', async (req, res) => {
-    const { auth, dhcpdConf } = req.body;
+    const { auth, dhcpdConf, action, details } = req.body;
   
     try {
       const now = new Date();
@@ -114,7 +128,9 @@ app.post('/api/update-dhcpd-conf', async (req, res) => {
       );
       console.log('Moved to final location');
 
-      await logActivity(auth.username, `Updated DHCP configuration on ${auth.host}`);
+      // Detailed logging
+      const logMessage = `${action}, Details: ${JSON.stringify(details)}`;
+      await logActivity(auth.username, `${logMessage} on ${auth.host}`);
   
       await runSSHCommand(auth, 'sudo -S systemctl restart isc-dhcp-server');
   
@@ -129,6 +145,7 @@ app.post('/api/status', async (req, res) => {
 const { auth, command } = req.body;
     try {
         const result = await runSSHCommand(auth, command);
+        await logActivity(auth.username, `Checked server status on ${auth.host}`);
         res.json({output: result.toString()});
     } catch (error: any) {
         console.error('SSH command failed:', error.message);
@@ -152,9 +169,14 @@ app.get('/api/logs', async (req, res) => {
         const filePath = path.join(__dirname, '..', 'logs', 'activity.log');
         const fileContent = await fs.readFile(filePath, 'utf-8');
         res.type('text/plain').send(fileContent);
-    } catch (error) {
-        console.error('Error reading log file:', error);
-        res.status(500).json({ error: 'Failed to read log file' });
+    } catch (error: any) {
+        if (error.code === 'ENOENT') {
+            // File doesn't exist, which is not an error in this case
+            res.type('text/plain').send('No activity has been logged yet.');
+        } else {
+            console.error('Error reading log file:', error);
+            res.status(500).json({ error: 'Failed to read log file' });
+        }
     }
 });
 
@@ -192,6 +214,7 @@ app.listen(PORT, () => {
     console.log(`🚀 DHCP Web View Backend server is running on http://localhost:${PORT}`);
     console.log(`📡 API endpoints available:`);
     console.log(`   GET  /api/servers`);
+    console.log(`   POST /api/login`);
     console.log(`   POST /api/status`);
     console.log(`   POST /api/leases`);
     console.log(`   POST /api/dhcpd-conf`);
