@@ -1,14 +1,13 @@
-import { fileURLToPath } from 'url';
-import path from 'path';
-import fs from 'fs/promises';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import fs from 'fs/promises';
+import path from 'path';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse,
+) {
   try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const filePath = path.join(__dirname, 'servers.json');
-
+    const filePath = path.join(process.cwd(), '/public/servers.json');
     const fileContent = await fs.readFile(filePath, 'utf-8');
     res.json(JSON.parse(fileContent));
   } catch (error) {

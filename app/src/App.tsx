@@ -83,7 +83,7 @@ const availableSubnets = useMemo(() => {
   const fetchServers = async () => {
     setIsLoadingServers(true);
     try {
-      const response = await fetch('/api/fetchServers');
+      const response = await fetch('/api/servers');
       if (response.ok) {
         const data = await response.json();
         setServers(data);
