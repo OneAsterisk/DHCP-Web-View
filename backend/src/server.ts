@@ -6,6 +6,7 @@ import path from 'path';
 import { NodeSSH } from 'node-ssh';
 // @ts-ignore
 import dhcpdLeases from 'dhcpd-leases';
+import { logActivity } from './logger';
 
 interface ServerSSHConfig {
     host: string;
@@ -112,6 +113,8 @@ app.post('/api/update-dhcpd-conf', async (req, res) => {
         `sudo -S mv "${tmpFile}" /etc/dhcp/dhcpd.conf`,
       );
       console.log('Moved to final location');
+
+      await logActivity(auth.username, `Updated DHCP configuration on ${auth.host}`);
   
       await runSSHCommand(auth, 'sudo -S systemctl restart isc-dhcp-server');
   
@@ -141,6 +144,17 @@ const { auth, command } = req.body;
         }
         
         res.status(500).json({ error: errorMessage });
+    }
+});
+
+app.get('/api/logs', async (req, res) => {
+    try {
+        const filePath = path.join(__dirname, '..', 'logs', 'activity.log');
+        const fileContent = await fs.readFile(filePath, 'utf-8');
+        res.type('text/plain').send(fileContent);
+    } catch (error) {
+        console.error('Error reading log file:', error);
+        res.status(500).json({ error: 'Failed to read log file' });
     }
 });
 
@@ -182,5 +196,6 @@ app.listen(PORT, () => {
     console.log(`   POST /api/leases`);
     console.log(`   POST /api/dhcpd-conf`);
     console.log(`   POST /api/update-dhcpd-conf`);
+    console.log(`   GET  /api/logs`);
     console.log(`⚠️ POST /api/delete-dhcp-entry //in progress ⚠️`); 
 });
