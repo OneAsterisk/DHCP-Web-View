@@ -4,13 +4,14 @@ import { createLeaseArray, createVOIPLeaseArray, calculateVOIPPages, deleteHostE
 import AddEntryModal from '../components/AddEntryModal';
 import { Toaster, toast } from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
-type Subnet = {
+import IPTable from '../components/IpTable';
+export type Subnet = {
   name: string;
   ipPrefix: string;
   typeDescriptions: {[key: string]: number[]};
-}
+} 
 
-type Server = {
+export type Server = {
   name: string;
   host: string;
   ipPrefix?: string; // Optional for backward compatibility
@@ -426,7 +427,6 @@ const confirmDelete = async ()=> {
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            
             {/* Server Configuration Card */}
             <div className="lg:col-span-3 order-1 lg:order-1">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
@@ -621,131 +621,7 @@ const confirmDelete = async ()=> {
               </div>
 
               {/* IP Table Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">IP Address Table</h2>
-                </div>
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">IP Address</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Status</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Hostname</th>
-                        <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-                      {isLoadingIPs ? (
-                        <tr>
-                          <td colSpan={4} className="px-6 py-8 text-center text-gray-500 dark:text-gray-300">
-                            <div className="flex justify-center items-center">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                              <span className="ml-2">Loading IP addresses...</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        leaseArray.map((item, index) => (
-                        <tr key={index} className={item.status === 'Free' ? 'bg-green-50 dark:bg-green-900' : ''}>
-                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300">{item.ip}</td>
-                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                            <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${
-                              item.status === 'Free' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-                                : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                            }`}>
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300">
-                            {item.status === 'Taken' ? (item.hostname || 'Unknown') : '-'}
-                          </td>
-                          <td className="px-3 sm:px-6 py-2 text-center sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                            {item.status === 'Free' && isLoggedIn ? (
-                              <button
-                                onClick={() => handleOpenAddEntryModal(item.ip, selectedType)}
-                                disabled={isUpdatingConfig}
-                                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-2 py-1 sm:px-3 rounded text-xs"
-                              >
-                                Add Entry
-                              </button>
-                            ) : (
-                              <div className="flex justify-center mt-2 space-x-2">
-                                {item.status === 'Taken' && (
-                                  <>
-                                    <button 
-                                      onClick={() => handleEditEntry({ hostname: item.hostname, HWAddress: item.HWAddress, ip: item.ip, type: selectedType })} 
-                                      disabled={isUpdatingConfig}
-                                      className="px-1.5 sm:px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
-                                    >
-                                      Edit
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDeleteEntry(item.hostname ?? '')} 
-                                      disabled={isUpdatingConfig}
-                                      className="px-1.5 sm:px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
-                                    >
-                                      Delete
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )))}
-                    </tbody>
-                  </table>
-                  </div>
-                  
-                  {leaseArray.length === 0 && selectedType && !isLoadingIPs && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-300">
-                      No IP addresses found for {selectedType}
-                    </div>
-                  )}
-                  
-                  {!selectedType && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-300">
-                      Please select a device type to view available IP addresses
-                    </div>
-                  )}
-                </div>
-                
-                {/* Pagination Controls for Large Ranges */}
-                {isLargeRange && totalPages > 1 && (
-                  <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex justify-center items-center space-x-2">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1 || isLoadingIPs}
-                        className="px-2 sm:px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 text-xs sm:text-sm"
-                      >
-                        <span className="hidden sm:inline">Previous</span>
-                        <span className="sm:hidden">Prev</span>
-                      </button>
-                      
-                      <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages || isLoadingIPs}
-                        className="px-2 sm:px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 text-xs sm:text-sm"
-                      >
-                        Next
-                      </button>
-                    </div>
-                    
-                    {/* Info about pagination for large ranges */}
-                    <div className="text-center mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      Showing {itemsPerPage} IPs per page for large IP range ({leaseArray.length} IPs shown)
-                    </div>
-                  </div>
-                )}
-              </div>
+              <IPTable leaseArray={leaseArray} isLoadingIPs={isLoadingIPs} isLoggedIn={isLoggedIn} selectedType={selectedType} handleOpenAddEntryModal={handleOpenAddEntryModal} handleEditEntry={handleEditEntry} handleDeleteEntry={handleDeleteEntry} isUpdatingConfig={isUpdatingConfig} selectedSubnet={selectedSubnet} />
             </div>
           </div>
         </main>
