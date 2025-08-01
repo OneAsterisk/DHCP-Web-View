@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import SSH2Promise from 'ssh2-promise';
 import fs from 'fs/promises';
 import path from 'path';
+import https from 'https';
 import { NodeSSH } from 'node-ssh';
 // @ts-ignore
 import dhcpdLeases from 'dhcpd-leases';
@@ -72,6 +73,11 @@ app.get('/api/servers', async (req, res) => {
         res.status(500).json({ error: 'Failed to read servers configuration' });
     }
 });
+
+app.get('/', async(req, res) => {
+    console.log("You've reached the api. Good for you!")
+    res.json({message: "You've reached the api. Good for you!"})
+})
 
 app.post('/api/login', decodePassword, async (req, res) => {
     const { auth } = req.body;
@@ -220,22 +226,36 @@ app.post('/api/leases', decodePassword, async (req, res) => {
 // Load environment variables
 dotenv.config();
 
-// Set the port from environment variable or default to 3001
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = '0.0.0.0'; // Listen on all network interfaces
 
-// Start the server
-app.listen(PORT, HOST, () => {
-    console.log(`🚀 DHCP Web View Backend server is running!`);
-    console.log(`   - Local:   http://localhost:${PORT}`);
-    console.log(`   - Network: http://<YOUR_LOCAL_IP>:${PORT}`); // Replace <YOUR_LOCAL_IP> with your actual IP
-    console.log(`📡 API endpoints available:`);
-    console.log(`   GET  /api/servers`);
-    console.log(`   POST /api/login`);
-    console.log(`   POST /api/status`);
-    console.log(`   POST /api/leases`);
-    console.log(`   POST /api/dhcpd-conf`);
-    console.log(`   POST /api/update-dhcpd-conf`);
-    console.log(`   GET  /api/logs`);
-    console.log(`   POST /api/delete-dhcp-entry`); 
-});
+
+const keyPath = path.join(__dirname, '..', 'certs', 'key.pem');
+const certPath = path.join(__dirname, '..', 'certs', 'cert.pem');
+
+const startServer = async () => {
+  try {
+    const [key, cert] = await Promise.all([
+      fs.readFile(keyPath),
+      fs.readFile(certPath),
+    ]);
+
+    const options = { key, cert };
+
+    https.createServer(options, app).listen(PORT, HOST, () => {
+      console.log(`🚀 DHCP Web View Backend server is running securely!`);
+      console.log(`   - Local (HTTPS): https://localhost:${PORT}`);
+      console.log(`   - Network (HTTPS): https://<YOUR_LOCAL_IP>:${PORT}`);
+    });
+  } catch (error: any) {
+    console.error('❌ Could not start HTTPS server.', error.code === 'ENOENT' ? 'Certificate files not found.' : '');
+    console.log('✅ Falling back to INSECURE HTTP mode.');
+    
+    app.listen(PORT, HOST, () => {
+      console.log(`🚀 Backend server is running in INSECURE HTTP mode.`);
+      console.log(`   - Local (HTTP): http://localhost:${PORT}`);
+    });
+  }
+};
+
+startServer();
