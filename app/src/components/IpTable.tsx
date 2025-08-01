@@ -88,7 +88,6 @@ export const IPTable: React.FC<{
     const createLeaseArray = (): tableItem[] => {
         if (subnetOctets.length === 0) return [];
         
-        // Get the current third octet based on the current page
         const currentThirdOctet = subnetOctets[currentPage];
         const result: tableItem[] = [];
         
@@ -96,11 +95,9 @@ export const IPTable: React.FC<{
         for (let fourthOctet = 1; fourthOctet <= 254; fourthOctet++) {
             const currentIP = `${props.selectedSubnet?.ipPrefix}.${currentThirdOctet}.${fourthOctet}`;
             
-            // Check if this IP exists in the existing lease array
             const existingLease = props.leaseArray.find(item => item.ip === currentIP);
             
             if (existingLease) {
-                // Use existing lease data
                 result.push({
                     ip: currentIP,
                     status: existingLease.status,
@@ -108,7 +105,6 @@ export const IPTable: React.FC<{
                     HWAddress: existingLease.HWAddress ?? ''
                 });
             } else {
-                // Create a "Free" entry
                 result.push({
                     ip: currentIP,
                     status: 'Free',
