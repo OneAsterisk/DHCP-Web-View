@@ -5,6 +5,7 @@ import AddEntryModal from '../components/AddEntryModal';
 import { Toaster, toast } from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import IPTable from '../components/IpTable';
+import { callApi } from '../helpers/api';
 export type Subnet = {
   name: string;
   ipPrefix: string;
@@ -48,7 +49,7 @@ function Dashboard() {
   const [, setIsEditMode] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState<boolean>(false);
   const [hostnameToDelete, setHostnameToDelete] = useState<string>('');
-  
+  const [token, setToken] = useState<string | null>(null);
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage] = useState<number>(50);
@@ -79,14 +80,14 @@ const availableSubnets = useMemo(() => {
 }, [selectedServer]);
   
   useEffect(() => {
-  const fetchServers = async () => {
-    setIsLoadingServers(true);
-    try {
-      const response = await fetch('/api/servers');
-      if (response.ok) {
-        const data = await response.json();
+    const fetchServers = async () => {
+      setIsLoadingServers(true);
+      try {
+        // We use callApi with 'GET' and pass 'null' for the token and body.
+        const data = await callApi('servers', 'GET', null);
+    
         setServers(data);
-        if( data.length > 0) {
+        if (data && data.length > 0) {
           setSelectedServer(data[0]);
           // Auto-select first subnet if available
           if (data[0].subnets && data[0].subnets.length > 0) {
@@ -95,13 +96,13 @@ const availableSubnets = useMemo(() => {
             setSelectedSubnet(null);
           }
         }
+      } catch (error) {
+        // Our helper function will show the toast error, so we just log it here.
+        console.error('Error fetching servers:', error);
+      } finally {
+        setIsLoadingServers(false);
       }
-    } catch (error) {
-      console.error('Error fetching servers:', error);
-    } finally {
-      setIsLoadingServers(false);
     }
-  }
    fetchServers();
 }, []);
 
@@ -181,95 +182,43 @@ useEffect(() => {
 }, [selectedType, dhcpdConf, selectedServer, selectedSubnet, currentPage, itemsPerPage]);
 
 const fetchDhcpdConf = async () => {
-if(!selectedServer) {
-  toast.error('Please select a server');
-  return;
-}
-if(!isLoggedIn) {
-  toast.error('Please login to fetch the dhcpd.conf');
-  return;
-}
-if(!username || !password) {
-  toast.error('Please provide your server credentials to fetch the dhcpd.conf');
-  return;
-}
+  if (!isLoggedIn) {
+    return toast.error('Please log in to fetch the configuration.');
+  }
   setIsLoadingConfig(true);
   try {
-    const auth = {
-      host: selectedServer.host,
-      username: username,
-      password: btoa(password), // Encode password
-    };
     const command = 'cat /etc/dhcp/dhcpd.conf';
-    const response = await fetch('/api/dhcpd-conf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth, command }),
-    });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-      toast.error(`Error fetching dhcpd.conf: ${errorMessage}`);
-      return;
-    }
-    const data = await response.json(); 
+    // Notice: no 'auth' object needed in the body anymore!
+    const data = await callApi('dhcpd-conf', 'POST', token, { command });
     
-    // Get the current server's type descriptions for context
     const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
-    
     setDhcpdConf(parseDHCPDConf(data.output, currentTypeDescriptions));
     setDhcpdConfString(data.output);
   } catch (error) {
-    console.error('Error fetching dhcpd.conf:', error);
-    toast.error('Error: Network request failed. Check if backend is running.');
+    // The callApi helper already shows a toast, so we just log here.
+    console.error('Failed to fetch dhcpd.conf:', error);
   } finally {
     setIsLoadingConfig(false);
   }
 }
 
 const checkStatus = async () => {
-  if (!isLoggedIn || !selectedServer || !username || !password) {
-    toast.error('Please provide your server credentials to check the service status');
-    return;
+  if (!isLoggedIn) {
+    return toast.error('Please log in to check the service status.');
   }
   setIsCheckingStatus(true);
-  setOutput('Loading...');
-  const auth = {
-    host: selectedServer.host,
-    username: username,
-    password: btoa(password), // Encode password
-  };
-  const command = 'systemctl status isc-dhcp-server';
-
   try {
-    const response = await fetch('/api/status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth, command }),
-    });
-    
-    if (!response.ok) {
-      // Try to get more detailed error information
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-      setOutput(`Error: ${errorMessage}`);
-      return;
-    }
-    
-    const data = await response.json();
+    const command = 'systemctl status isc-dhcp-server';
+    const data = await callApi('status', 'POST', token, { command });
+
     setOutput(data.output);
-    
     const lines = data.output.split('\n');
     const serviceStatus = lines.find((line: string) => line.trim().startsWith('Active:'));
-    let status = "inactive";
-    if (serviceStatus.includes('active')) {
-      status = "active";
-    }
+    let status = serviceStatus?.includes('active') ? "active" : "inactive";
     setServiceStatus(status);
-    toast.success('Service is active');
+    toast.success(`Service is ${status}`);
   } catch (error) {
-    console.error('Error checking status:', error);
-    setOutput('Error: Network request failed. Check if backend is running.');
+    console.error('Failed to check status:', error);
   } finally {
     setIsCheckingStatus(false);
   }
@@ -293,36 +242,32 @@ const handleLogin = async () => {
     });
 
     if (response.ok) {
-      setIsLoggedIn(true);
-      toast.success('Login successful!');
+      const data = await response.json();
+      if(data.token) {
+        setToken(data.token);
+        setIsLoggedIn(true);
+      } else {
+        toast.error('Login failed: No token received');
+        setIsLoggedIn(false);
+      }
     } else {
       const errorData = await response.json();
-      toast.error(errorData.error || 'Login failed.');
+      toast.error(errorData.error || 'Login failed: Network request failed');
       setIsLoggedIn(false);
-    }
+    } 
   } catch (error) {
-    toast.error('An error occurred during login.');
+    toast.error('An error occurred during login: Network request failed');
     setIsLoggedIn(false);
   }
 };
 
 const handleAddEntry = async (entry: DHCPEntry) => {
-  if (!isLoggedIn || !selectedServer.host || !username || !password) {
-    toast.error('Please provide your server credentials to add an entry');
-    return;
+  if (!isLoggedIn) {
+    return toast.error('Please log in to add or edit an entry.');
   }
 
   setIsUpdatingConfig(true);
   try {
-    const auth = {
-      host: selectedServer.host,
-      username: username,
-      password: btoa(password), // Encode password
-    };
-
-    // Get the current server's type descriptions for context
-    const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
-    
     const isEditMode = !!currentHostname;
     const action = isEditMode ? 'Edit Entry' : 'Add Entry';
     const details = {
@@ -332,27 +277,24 @@ const handleAddEntry = async (entry: DHCPEntry) => {
       previousHostname: isEditMode ? currentHostname : undefined,
     };
     
-    const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname, currentTypeDescriptions);
-    
-    const response = await fetch('/api/update-dhcpd-conf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth, dhcpdConf: updatedDhcpdConf, action, details }),
+    const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname, selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {});
+
+    // The API call is now much simpler
+    await callApi('update-dhcpd-conf', 'POST', token, {
+      dhcpdConf: updatedDhcpdConf,
+      action,
+      details,
     });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-      toast.error(`Error updating DHCP configuration: ${errorMessage}`);
-      return;
-    }
     
     toast.success(`Successfully updated entry for ${entry.hostname}`);
+    // Refresh data after successful update
     fetchDhcpdConf();
     resetAddEntryModal();
     checkStatus();
+
   } catch (error) {
+    // The callApi helper already shows a toast
     console.error('Error updating DHCP configuration:', error);
-    toast.error('Error: Network request failed. Check if backend is running.');
   } finally {
     setIsUpdatingConfig(false);
   }
@@ -381,43 +323,35 @@ const handleDeleteEntry = async (hostname: string)=> {
   setIsConfirmModalOpen(true);
 }
 
-const confirmDelete = async ()=> {
-    if (!hostnameToDelete) return;
+const confirmDelete = async () => {
+  if (!hostnameToDelete) return;
 
+  try {
     const updatedDhcpdConf = deleteHostEntry(dhcpdConfString, hostnameToDelete);
-    const auth = {
-      host: selectedServer.host,
-      username: username,
-      password: btoa(password), // Encode password
-    };
     const action = 'Delete Entry';
     const details = { hostname: hostnameToDelete };
 
-    try {
-      const response = await fetch('/api/update-dhcpd-conf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auth, dhcpdConf: updatedDhcpdConf, action, details }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
-        toast.error(`Error updating DHCP configuration: ${errorMessage}`);
-        return;
-      }
-    } catch (error) {
-    console.error('Error updating DHCP configuration:', error);
-    toast.error('Error: Network request failed. Check if backend is running.');
-    }
+    // The API call is now much simpler
+    await callApi('update-dhcpd-conf', 'POST', token, {
+      dhcpdConf: updatedDhcpdConf,
+      action,
+      details,
+    });
+    
     toast.success(`Successfully deleted entry for ${hostnameToDelete}`);
+    // Refresh data after successful deletion
     fetchDhcpdConf();
     resetAddEntryModal();
     checkStatus();
     setIsConfirmModalOpen(false);
     setHostnameToDelete('');
-    return;
 
+  } catch (error) {
+    // The callApi helper already shows a toast
+    console.error('Error updating DHCP configuration:', error);
+    setIsConfirmModalOpen(false); // Close modal even on error
   }
+};
 
   const handleOpenAddEntryModal = (ip: string, type: string, hostname?: string, macAddress?: string) => {
     if (hostname && macAddress) {
