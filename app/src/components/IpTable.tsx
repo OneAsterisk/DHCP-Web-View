@@ -20,6 +20,25 @@ export const IPTable: React.FC<{
         HWAddress: string | null;
     }
 
+    // QoL state: search and show MAC toggle
+    const [search, setSearch] = React.useState('');
+    const [debouncedSearch, setDebouncedSearch] = React.useState('');
+    const [showMac, setShowMac] = React.useState(false);
+
+    React.useEffect(() => {
+        const id = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 250);
+        return () => clearTimeout(id);
+    }, [search]);
+
+    const copyToClipboard = async (label: string, value?: string | null) => {
+        if (!value) return;
+        try {
+            await navigator.clipboard.writeText(value);
+        } catch (e) {
+            // no-op fallback; we purposely avoid toast dependencies
+        }
+    };
+
     // Internal pagination component
     const PaginationControls: React.FC<{ position?: 'top' | 'bottom' | 'sticky' }> = ({ position = 'bottom' }) => {
         if (subnetOctets.length <= 1) return null;
@@ -116,12 +135,45 @@ export const IPTable: React.FC<{
         return result;
     };
 
-    const currentPageData = createLeaseArray();
+    const currentPageData = React.useMemo(() => {
+        const base = createLeaseArray();
+        if (!debouncedSearch) return base;
+        return base.filter(row => {
+            const q = debouncedSearch;
+            return (
+                row.ip.toLowerCase().includes(q) ||
+                (row.hostname ?? '').toLowerCase().includes(q) ||
+                (row.HWAddress ?? '').toLowerCase().includes(q)
+            );
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.leaseArray, props.selectedSubnet, props.selectedType, currentPage, debouncedSearch]);
+
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">IP Address Table</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Browse available and taken IP addresses. Use the selector to switch subnets.</p>
+            </div>
+            <div className="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-700/40">
+                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search IP, hostname, or MAC"
+                        className="w-full sm:w-72 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+                <label className="inline-flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-200">
+                    <input
+                        type="checkbox"
+                        className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                        checked={showMac}
+                        onChange={(e) => setShowMac(e.target.checked)}
+                    />
+                    <span>Show MAC</span>
+                </label>
             </div>
             <PaginationControls position="sticky" />
             <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -132,13 +184,16 @@ export const IPTable: React.FC<{
                         <th className="px-3 sm:px-6 py-2.5 text-left text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-300">IP Address</th>
                         <th className="px-3 sm:px-6 py-2.5 text-left text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-300">Status</th>
                         <th className="px-3 sm:px-6 py-2.5 text-left text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-300">Hostname</th>
+                        {showMac && (
+                          <th className="px-3 sm:px-6 py-2.5 text-left text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-300">MAC</th>
+                        )}
                         <th className="px-3 sm:px-6 py-2.5 text-center text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-300">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100 dark:bg-gray-800 dark:divide-gray-700">
                       {props.isLoadingIPs ? (
                         <tr>
-                          <td colSpan={4} className="px-6 py-10 text-center text-gray-500 dark:text-gray-300">
+                          <td colSpan={showMac ? 5 : 4} className="px-6 py-10 text-center text-gray-500 dark:text-gray-300">
                             <div className="flex justify-center items-center">
                               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                               <span className="ml-2">Loading IP addresses…</span>
@@ -148,7 +203,18 @@ export const IPTable: React.FC<{
                       ) : (
                         currentPageData.map((item, index) => (
                         <tr key={index} className={item.status === 'Free' ? 'bg-green-50/60 dark:bg-green-900/30' : ''}>
-                          <td className="px-3 sm:px-6 py-2 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300 font-medium">{item.ip}</td>
+                          <td className="px-3 sm:px-6 py-2 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300 font-medium">
+                            <div className="flex items-center space-x-2">
+                              <span>{item.ip}</span>
+                              <button
+                                onClick={() => copyToClipboard('IP', item.ip)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                title="Copy IP"
+                              >
+                                ⧉
+                              </button>
+                            </div>
+                          </td>
                           <td className="px-3 sm:px-6 py-2 whitespace-nowrap text-xs sm:text-sm">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold ${
                               item.status === 'Free' 
@@ -160,8 +226,35 @@ export const IPTable: React.FC<{
                             </span>
                           </td>
                           <td className="px-3 sm:px-6 py-2 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300">
-                            {item.status === 'Taken' ? (item.hostname || 'Unknown') : '-'}
+                            <div className="flex items-center space-x-2">
+                              <span>{item.status === 'Taken' ? (item.hostname || 'Unknown') : '-'}</span>
+                              {item.status === 'Taken' && item.hostname && (
+                                <button
+                                  onClick={() => copyToClipboard('Hostname', item.hostname!)}
+                                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                  title="Copy hostname"
+                                >
+                                  ⧉
+                                </button>
+                              )}
+                            </div>
                           </td>
+                          {showMac && (
+                            <td className="px-3 sm:px-6 py-2 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-300">
+                              <div className="flex items-center space-x-2">
+                                <span>{item.status === 'Taken' ? (item.HWAddress || '—') : '—'}</span>
+                                {item.status === 'Taken' && item.HWAddress && (
+                                  <button
+                                    onClick={() => copyToClipboard('MAC', item.HWAddress!)}
+                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                    title="Copy MAC"
+                                  >
+                                    ⧉
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
                           <td className="px-3 sm:px-6 py-2 text-center whitespace-nowrap text-xs sm:text-sm">
                             {item.status === 'Free' && props.isLoggedIn ? (
                               <button
