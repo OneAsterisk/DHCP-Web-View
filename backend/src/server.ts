@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import https from 'https';
 import { NodeSSH } from 'node-ssh';
+import jwt from 'jsonwebtoken';
 // @ts-ignore
 import dhcpdLeases from 'dhcpd-leases';
 import { logActivity } from './logger';
@@ -22,6 +23,42 @@ const decodePassword = (req: express.Request, res: express.Response, next: expre
     }
     next();
 };
+
+interface AuthenticatedUserPayload {
+    username: string;
+    host: string;
+    password: string;
+    iat: number;
+    exp: number;
+}
+
+interface AuthRequest extends express.Request {
+    user?: AuthenticatedUserPayload;
+}
+
+const authToken = (req: AuthRequest, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers['authorization'];
+
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if(!token) {
+        return res.status(401).json({error: 'Unauthorized'});
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if(!jwtSecret) {
+        console.error('JWT_SECRET is not set');
+        return res.status(500).json({error: 'Server Security Error'});
+    }
+
+    jwt.verify(token, jwtSecret, (err, user) => {
+        if(err) {
+            return res.status(401).json({error: 'Unauthorized'});
+        }
+        req.user = user as AuthenticatedUserPayload;
+        next();
+    });
+}
 
 interface ServerSSHConfig {
     host: string;
@@ -82,10 +119,22 @@ app.get('/', async(req, res) => {
 app.post('/api/login', decodePassword, async (req, res) => {
     const { auth } = req.body;
     try {
-        // Run a simple, non-destructive command to validate credentials
         await runSSHCommand(auth, 'echo "Login successful"');
+
+        const jwtSecret = process.env.JWT_SECRET;
+        if(!jwtSecret) {
+            console.error('JWT_SECRET is not set');
+            return res.status(500).json({error: 'Server Security Error'});
+        }
+        const payload = {
+            username: auth.username,
+            host: auth.host,
+            password: auth.password,
+        };
+        const token = jwt.sign(payload, jwtSecret, {expiresIn: '1h'});
+
         await logActivity(auth.username, `Logged in to server ${auth.host}`);
-        res.json({ message: 'Login successful' });
+        res.json({message: 'Login successful', token: token});
     } catch (error: any) {
         console.error('Login failed:', error.message);
         await logActivity(auth.username, `Failed login attempt to server ${auth.host}`);
@@ -93,8 +142,14 @@ app.post('/api/login', decodePassword, async (req, res) => {
     }
 });
 
-app.post('/api/dhcpd-conf', decodePassword, async (req, res) => {
-    const { auth, command } = req.body;
+app.post('/api/dhcpd-conf', authToken, async (req: AuthRequest, res) => {
+    const { command } = req.body;
+    const auth = req.user;
+
+    if(!auth) {
+        return res.status(401).json({error: 'Unauthorized'});
+    }
+
     try {
         const result = await runSSHCommand(auth, command);
         res.json({output: result.toString()});
@@ -123,8 +178,13 @@ export async function runSSHCommand(
     return stdout;
   }
 
-app.post('/api/update-dhcpd-conf', decodePassword, async (req, res) => {
-    const { auth, dhcpdConf, action, details } = req.body;
+app.post('/api/update-dhcpd-conf', authToken, async (req: AuthRequest, res) => {
+    const { dhcpdConf, action, details } = req.body;
+    const auth = req.user;
+
+    if(!auth) {
+        return res.status(401).json({error: 'Unauthorized'});
+    }
   
     try {
       const now = new Date();
@@ -161,9 +221,14 @@ app.post('/api/update-dhcpd-conf', decodePassword, async (req, res) => {
     }
 });
 
-app.post('/api/status', decodePassword, async (req, res) => {
-const { auth, command } = req.body;
+app.post('/api/status', authToken, async (req: AuthRequest, res) => {
+    const { command } = req.body;
+    const auth = req.user;
+    
     try {
+        if(!auth) {
+            return res.status(401).json({error: 'Unauthorized'});
+        }
         const result = await runSSHCommand(auth, command);
         await logActivity(auth.username, `Checked server status on ${auth.host}`);
         res.json({output: result.toString()});
@@ -200,8 +265,14 @@ app.get('/api/logs', async (req, res) => {
     }
 });
 
-app.post('/api/leases', decodePassword, async (req, res) => {
-    const { auth, command } = req.body;
+app.post('/api/leases', authToken, async (req: AuthRequest, res) => {
+    const { command } = req.body;
+    const auth = req.user;
+
+    if(!auth) {
+        return res.status(401).json({error: 'Unauthorized'});
+    }
+
     try {
         const result = await runSSHCommand(auth, command);
         const leasesContent = result.toString();
