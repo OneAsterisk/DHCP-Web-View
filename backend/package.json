@@ -15,9 +15,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "dhcpd-leases": "^0.1.2",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "node-ssh": "^13.2.1",
     "ssh2-promise": "^1.0.3"
   },
