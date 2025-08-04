@@ -7,9 +7,10 @@ type Props = {
   setPassword: (v: string) => void;
   isLoggedIn: boolean;
   onLogin: () => void;
+  onLogout?: () => void;
 };
 
-const AuthCard: React.FC<Props> = ({ username, setUsername, password, setPassword, isLoggedIn, onLogin }) => {
+const AuthCard: React.FC<Props> = ({ username, setUsername, password, setPassword, isLoggedIn, onLogin, onLogout }) => {
   return (
     <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -48,15 +49,25 @@ const AuthCard: React.FC<Props> = ({ username, setUsername, password, setPasswor
               placeholder="Enter password"
             />
           </div>
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={onLogin}
-              disabled={!username || !password}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded"
-            >
-              Login
-            </button>
+          <div className="flex items-end gap-2">
+            {isLoggedIn ? (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-4 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+              >
+                Logout
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onLogin}
+                disabled={!username || !password}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+              >
+                Login
+              </button>
+            )}
           </div>
         </form>
       </div>

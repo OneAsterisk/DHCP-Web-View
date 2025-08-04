@@ -83,6 +83,36 @@ const availableSubnets = useMemo(() => {
   return selectedServer.subnets;
 }, [selectedServer]);
   
+  // Rehydrate auth state from localStorage on app load
+  useEffect(() => {
+    try {
+      const savedAuth = localStorage.getItem('dhcp-auth');
+      if (savedAuth) {
+        const { token: savedToken, username: savedUsername, serverHost } = JSON.parse(savedAuth);
+        
+        // Check if token is expired (JWT expiry is in seconds, Date.now() is in ms)
+        if (savedToken) {
+          const tokenPayload = JSON.parse(atob(savedToken.split('.')[1]));
+          const isExpired = tokenPayload.exp * 1000 < Date.now();
+          
+          if (!isExpired) {
+            setToken(savedToken);
+            setUsername(savedUsername);
+            setIsLoggedIn(true);
+            console.log('Auth state restored from localStorage');
+          } else {
+            // Clean up expired token
+            localStorage.removeItem('dhcp-auth');
+            console.log('Expired token removed from localStorage');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error rehydrating auth state:', error);
+      localStorage.removeItem('dhcp-auth'); // Clean up corrupted data
+    }
+  }, []);
+
   useEffect(() => {
     const fetchServers = async () => {
       setIsLoadingServers(true);
@@ -232,6 +262,20 @@ const checkStatus = async () => {
   }
 };
 
+const clearAuthState = () => {
+  setToken(null);
+  setIsLoggedIn(false);
+  setUsername('');
+  setPassword('');
+  localStorage.removeItem('dhcp-auth');
+  console.log('Auth state cleared');
+};
+
+const handleLogout = () => {
+  clearAuthState();
+  toast.success('Logged out successfully');
+};
+
 const handleLogin = async () => {
   if (!username || !password) {
     toast.error('Please enter both username and password.');
@@ -254,6 +298,20 @@ const handleLogin = async () => {
       if(data.token) {
         setToken(data.token);
         setIsLoggedIn(true);
+        
+        // Persist auth state to localStorage
+        try {
+          const authData = {
+            token: data.token,
+            username: username,
+            serverHost: selectedServer.host,
+            loginTime: Date.now()
+          };
+          localStorage.setItem('dhcp-auth', JSON.stringify(authData));
+          console.log('Auth state saved to localStorage');
+        } catch (error) {
+          console.error('Failed to save auth state to localStorage:', error);
+        }
       } else {
         toast.error('Login failed: No token received');
         setIsLoggedIn(false);
@@ -387,6 +445,8 @@ const confirmDelete = async () => {
                   setServiceStatus('inactive');
                   setIsLoggedIn(false);
                   setToken(null);
+                  // Clear localStorage when switching servers
+                  localStorage.removeItem('dhcp-auth');
                 }}
                 availableSubnets={availableSubnets}
                 selectedSubnet={selectedSubnet}
@@ -404,6 +464,7 @@ const confirmDelete = async () => {
                 setPassword={setPassword}
                 isLoggedIn={isLoggedIn}
                 onLogin={handleLogin}
+                onLogout={handleLogout}
               />
             </div>
 

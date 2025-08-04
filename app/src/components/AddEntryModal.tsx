@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface AddEntryModalProps {
   isOpen: boolean;
@@ -22,6 +22,10 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
   const [macAddress, setMacAddress] = useState('');
   const [errors, setErrors] = useState<{ hostname?: string; macAddress?: string }>({});
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = 'add-entry-title';
+  const descId = 'add-entry-desc';
+
   const isEditMode = !!currentHostname;
 
   useEffect(() => {
@@ -29,8 +33,39 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
       setHostname(currentHostname);
       setMacAddress(currentMacAddress);
       setErrors({}); // Reset errors when modal opens
+
+      const previouslyFocused = document.activeElement as HTMLElement | null;
+      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>('input, button, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
+      firstFocusable?.focus();
+
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onClose();
+        }
+        if (e.key === 'Tab') {
+          const focusables = dialogRef.current?.querySelectorAll<HTMLElement>('input, button, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
+          if (!focusables || focusables.length === 0) return;
+          const list = Array.from(focusables);
+          const first = list[0];
+          const last = list[list.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      };
+
+      document.addEventListener('keydown', onKeyDown, true);
+      return () => {
+        document.removeEventListener('keydown', onKeyDown, true);
+        previouslyFocused?.focus?.();
+      };
     }
-  }, [isOpen, currentHostname, currentMacAddress]);
+  }, [isOpen, onClose, currentHostname, currentMacAddress]);
 
   const validate = () => {
     const newErrors: { hostname?: string; macAddress?: string } = {};
@@ -62,15 +97,26 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
     return null;
   }
 
+  const onBackdrop = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg">
-        <form onSubmit={handleSubmit}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onMouseDown={onBackdrop}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg outline-none"
+      >
+        <form onSubmit={handleSubmit} noValidate>
           <div className="p-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 id={titleId} className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               {isEditMode ? 'Edit DHCP Entry' : 'Add New DHCP Entry'}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            <p id={descId} className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               IP Address: <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{ipAddress}</span>
             </p>
 
@@ -85,12 +131,14 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
                     setHostname(e.target.value);
                     if (errors.hostname) validate(); // Re-validate on change if there was an error
                   }}
-                  className={`bg-gray-50 border text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:text-white ${
-                    errors.hostname ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500'
+                  aria-invalid={!!errors.hostname}
+                  aria-describedby={errors.hostname ? 'hostname-error' : undefined}
+                  className={`bg-gray-50 border text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800 ${
+                    errors.hostname ? 'border-red-500 focus-visible:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
                   placeholder="e.g., my-device"
                 />
-                {errors.hostname && <p className="mt-2 text-sm text-red-600 dark:text-red-500">{errors.hostname}</p>}
+                {errors.hostname && <p id="hostname-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-500">{errors.hostname}</p>}
               </div>
 
               <div>
@@ -103,12 +151,14 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
                     setMacAddress(e.target.value.toUpperCase());
                     if (errors.macAddress) validate(); // Re-validate on change if there was an error
                   }}
-                  className={`bg-gray-50 border text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:text-white font-mono ${
-                    errors.macAddress ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500'
+                  aria-invalid={!!errors.macAddress}
+                  aria-describedby={errors.macAddress ? 'mac-error' : undefined}
+                  className={`bg-gray-50 border text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:text-white font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800 ${
+                    errors.macAddress ? 'border-red-500 focus-visible:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
                   placeholder="e.g., 00:1B:44:11:3A:B7"
                 />
-                {errors.macAddress && <p className="mt-2 text-sm text-red-600 dark:text-red-500">{errors.macAddress}</p>}
+                {errors.macAddress && <p id="mac-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-500">{errors.macAddress}</p>}
               </div>
             </div>
           </div>
@@ -117,13 +167,13 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 transition-colors"
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
             >
               {isEditMode ? 'Save Changes' : 'Add Entry'}
             </button>

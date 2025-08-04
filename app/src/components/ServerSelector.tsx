@@ -22,6 +22,16 @@ const ServerSelector: React.FC<Props> = ({
   isLoadingServers,
   onServerChanged,
 }) => {
+  const liveRef = React.useRef<HTMLDivElement>(null);
+  const announce = (msg: string) => {
+    if (liveRef.current) {
+      liveRef.current.textContent = '';
+      setTimeout(() => {
+        if (liveRef.current) liveRef.current.textContent = msg;
+      }, 10);
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -29,8 +39,9 @@ const ServerSelector: React.FC<Props> = ({
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose a server and subnet to manage IPs.</p>
       </div>
       <div className="p-6">
+        <div ref={liveRef} aria-live="polite" className="sr-only" />
         {isLoadingServers ? (
-          <div className="animate-pulse space-y-4">
+          <div className="animate-pulse space-y-4" aria-busy="true" aria-live="polite">
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
             <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -47,10 +58,11 @@ const ServerSelector: React.FC<Props> = ({
                   const newServer = servers.find(server => server.host === e.target.value);
                   if (newServer) {
                     setSelectedServer(newServer);
+                    announce(`Server changed to ${newServer.name}`);
                     onServerChanged?.();
                   }
                 }}
-                className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
+                className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800'
               >
                 {servers.map(server => (
                   <option key={server.host} value={server.host}>
@@ -69,8 +81,9 @@ const ServerSelector: React.FC<Props> = ({
                   onChange={(e) => {
                     const subnet = availableSubnets.find(s => s.name === e.target.value) || null;
                     setSelectedSubnet(subnet);
+                    if (subnet) announce(`Subnet changed to ${subnet.name}`);
                   }}
-                  className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
+                  className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800'
                 >
                   {availableSubnets.map(subnet => (
                     <option key={subnet.name} value={subnet.name}>
