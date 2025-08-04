@@ -6,6 +6,10 @@ import { Toaster, toast } from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import IPTable from '../components/IpTable';
 import { callApi } from '../helpers/api';
+import ServerSelector from '../components/ServerSelector';
+import AuthCard from '../components/AuthCard';
+import StatusCard from '../components/StatusCard';
+import IpControls from '../components/IpControls';
 export type Subnet = {
   name: string;
   ipPrefix: string;
@@ -373,204 +377,58 @@ const confirmDelete = async () => {
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Server Configuration Card */}
+            {/* Left rail: Server + Auth */}
             <div className="lg:col-span-3 order-1 lg:order-1">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Server Configuration</h2>
-                </div>
-                <div className="p-6">
-                  {isLoadingServers ? (
-                    <div className="animate-pulse">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  ) : (
-                    <form className="space-y-4">
-                      <div>
-                        <label htmlFor="server-select" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Select Server:</label>
-                        <select
-                          id="server-select"
-                          value={selectedServer.host}
-                          onChange={(e) => {
-                            const newServer = servers.find(server => server.host === e.target.value);
-                            setSelectedServer(newServer || {} as Server);
-                            setServiceStatus('inactive');
-                            setIsLoggedIn(false);
-                            setToken(null);
-                          }}
-                          className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-                        >
-                          {servers.map((server) => (
-                            <option key={server.host} value={server.host}>
-                              {server.name} ({server.host})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {/* Subnet Selection - only show if server has subnets */}
-                      {availableSubnets.length > 0 && (
-                        <div>
-                          <label htmlFor="subnet-select" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Select Subnet:</label>
-                          <select
-                            id="subnet-select"
-                            value={selectedSubnet?.name || ''}
-                            onChange={(e) => {
-                              const subnet = availableSubnets.find(s => s.name === e.target.value);
-                              setSelectedSubnet(subnet || null);
-                              setSelectedType(''); // Reset type selection when subnet changes
-                            }}
-                            className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-                          >
-                            {availableSubnets.map((subnet) => (
-                              <option key={subnet.name} value={subnet.name}>
-                                {subnet.name} ({subnet.ipPrefix})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </form>
-                  )}
-                </div>
-              </div>
+              <ServerSelector
+                servers={servers}
+                selectedServer={selectedServer}
+                setSelectedServer={(s) => {
+                  setSelectedServer(s);
+                  setServiceStatus('inactive');
+                  setIsLoggedIn(false);
+                  setToken(null);
+                }}
+                availableSubnets={availableSubnets}
+                selectedSubnet={selectedSubnet}
+                setSelectedSubnet={(s) => {
+                  setSelectedSubnet(s);
+                  setSelectedType('');
+                }}
+                isLoadingServers={isLoadingServers}
+              />
 
-              {/* Authentication Card */}
-              <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Authentication</h2>
-                </div>
-                <div className="p-6">
-                  <form className="space-y-4">
-                    <div>
-                      <label htmlFor="username" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Username:</label>
-                      <input
-                        type="text"
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-                        placeholder="Enter username"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="password" className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Password:</label>
-                      <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-                        placeholder="Enter password"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className={`w-3 h-3 rounded-full mr-2 ${isLoggedIn ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {isLoggedIn ? 'Logged in' : 'Not logged in'}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleLogin}
-                        disabled={!username || !password}
-                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded text-xs sm:text-sm"
-                      >
-                        Login
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
+              <AuthCard
+                username={username}
+                setUsername={setUsername}
+                password={password}
+                setPassword={setPassword}
+                isLoggedIn={isLoggedIn}
+                onLogin={handleLogin}
+              />
             </div>
 
             {/* Main Content Area */}
             <div className="lg:col-span-3 order-1 lg:order-2 space-y-4 sm:space-y-6">
               {/* Server Status Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">DHCP Server Status</h2>
-                </div>
-                <div className="p-6">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <span className='text-sm font-medium text-gray-600 dark:text-gray-400 mr-3'>Service Status:</span>
-                      <div className={`w-4 h-4 rounded-full mr-2 ${serviceStatus === 'active' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
-                      <span className={`text-sm font-semibold ${serviceStatus === 'active' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {serviceStatus}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={checkStatus}
-                      disabled={isCheckingStatus || !isLoggedIn}
-                      className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded text-xs sm:text-sm flex items-center"
-                    >
-                      {isCheckingStatus ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Checking...
-                        </>
-                      ) : (
-                        'Check Status'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              {/* IP Management Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">IP Address Management</h2>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="device-type" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Device Type:</label>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Range in: {selectedSubnet?.ipPrefix}.X.0-255</div>
-                      <select 
-                        id="device-type"
-                        className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-                        value={selectedType}
-                        onChange={(e) => setSelectedType(e.target.value)}
-                      >
-                        <option value="">Select a device type...</option>
-                        {typeDescriptions.filter(type => type !== '').map((type) => (
-                          <option key={type} value={type}>{type + " (" + selectedSubnet?.typeDescriptions[type] + ")"}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <button
-                        type="button"
-                        onClick={fetchDhcpdConf}
-                        disabled={isLoadingConfig || !isLoggedIn}
-                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded text-xs sm:text-sm flex items-center"
-                      >
-                        {isLoadingConfig ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Loading...
-                          </>
-                        ) : (
-                          'Refresh IPs'
-                        )}
-                      </button>
-                      
-                      <div className='text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg'>
-                        <div>Fixed IPs: {dhcpdConf.length}</div>
-                        <div className="hidden sm:block">Current Type: {selectedType || 'None selected'}</div>
-                        <div>IPs in Range: {leaseArray.length}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <StatusCard
+                serviceStatus={serviceStatus}
+                isCheckingStatus={isCheckingStatus}
+                isLoggedIn={isLoggedIn}
+                onCheck={checkStatus}
+              />
+
+              {/* IP Controls */}
+              <IpControls
+                selectedType={selectedType}
+                setSelectedType={setSelectedType}
+                typeDescriptions={typeDescriptions}
+                selectedSubnet={selectedSubnet}
+                onRefresh={fetchDhcpdConf}
+                isLoadingConfig={isLoadingConfig}
+                isLoggedIn={isLoggedIn}
+                fixedCount={dhcpdConf.length}
+                ipCount={leaseArray.length}
+              />
 
               {/* IP Table Card */}
               <IPTable leaseArray={leaseArray} isLoadingIPs={isLoadingIPs} isLoggedIn={isLoggedIn} selectedType={selectedType} handleOpenAddEntryModal={handleOpenAddEntryModal} handleEditEntry={handleEditEntry} handleDeleteEntry={handleDeleteEntry} isUpdatingConfig={isUpdatingConfig} selectedSubnet={selectedSubnet} />
