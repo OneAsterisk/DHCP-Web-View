@@ -10,20 +10,6 @@ import jwt from 'jsonwebtoken';
 import dhcpdLeases from 'dhcpd-leases';
 import { logActivity } from './logger';
 
-// Middleware to decode Base64 password from the request body
-const decodePassword = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (req.body && req.body.auth && req.body.auth.password) {
-        try {
-            const decodedPassword = Buffer.from(req.body.auth.password, 'base64').toString('utf8');
-            req.body.auth.password = decodedPassword;
-        } catch (e) {
-            // This will catch errors from invalid Base64 strings
-            return res.status(400).json({ error: 'Invalid password encoding in request.' });
-        }
-    }
-    next();
-};
-
 interface AuthenticatedUserPayload {
     username: string;
     host: string;
@@ -116,7 +102,7 @@ app.get('/', async(req, res) => {
     res.json({message: "You've reached the api. Good for you!"})
 })
 
-app.post('/api/login', decodePassword, async (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { auth } = req.body;
     try {
         await runSSHCommand(auth, 'echo "Login successful"');
@@ -165,10 +151,12 @@ export async function runSSHCommand(
     cmd: string,
   ): Promise<string> {
     const ssh = new NodeSSH();
+    const decodedPassword = Buffer.from(auth.password, 'base64').toString('utf8');
+
     await ssh.connect({
       host: auth.host,
       username: auth.username,
-      password: auth.password,
+      password: decodedPassword,
       port: 22,
     });
   

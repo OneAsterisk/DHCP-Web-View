@@ -83,22 +83,26 @@ const availableSubnets = useMemo(() => {
     const fetchServers = async () => {
       setIsLoadingServers(true);
       try {
-        // We use callApi with 'GET' and pass 'null' for the token and body.
-        const data = await callApi('servers', 'GET', null);
-    
-        setServers(data);
-        if (data && data.length > 0) {
-          setSelectedServer(data[0]);
-          // Auto-select first subnet if available
-          if (data[0].subnets && data[0].subnets.length > 0) {
-            setSelectedSubnet(data[0].subnets[0]);
-          } else {
-            setSelectedSubnet(null);
+        const response = await fetch('/api/servers');
+        if (response.ok) {
+          const data = await response.json();
+          setServers(data);
+          if (data && data.length > 0) {
+            setSelectedServer(data[0]);
+            // Auto-select first subnet if available
+            if (data[0].subnets && data[0].subnets.length > 0) {
+              setSelectedSubnet(data[0].subnets[0]);
+            } else {
+              setSelectedSubnet(null);
+            }
           }
+        } else {
+            // You can add a toast here if you like
+            toast.error('Could not fetch server list.');
         }
       } catch (error) {
-        // Our helper function will show the toast error, so we just log it here.
         console.error('Error fetching servers:', error);
+        toast.error('Error fetching servers: Network request failed.');
       } finally {
         setIsLoadingServers(false);
       }
