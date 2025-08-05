@@ -252,7 +252,6 @@ const checkStatus = async () => {
 
     setOutput(data.output);
     const lines = data.output.split('\n');
-    console.log(lines);
     const serviceStatus = lines.find((line: string) => line.trim().startsWith('Active:'));
     let status = serviceStatus?.includes('active') ? "active" : "inactive";
     setServiceStatus(status);
@@ -284,6 +283,62 @@ const restartService = async () => {
     console.error('Failed to restart service:', error);
   } finally {
     setIsRestartingService(false);
+  }
+};
+
+const checkDhcpConfig = async () => {
+  if (!isLoggedIn) {
+    return toast.error('Please log in to check the configuration.');
+  }
+  try {
+    const data = await callApi('check-dhcp-config', 'POST', token, {});
+    toast.success('DHCP configuration syntax is valid');
+    console.log('Config check result:', data.output);
+  } catch (error: any) {
+    console.error('=== DHCP Configuration Syntax Errors ===');
+    console.error(error);
+    toast.error('DHCP configuration has syntax errors - check console for details');
+  }
+};
+
+const viewDhcpLogs = async () => {
+  if (!isLoggedIn) {
+    return toast.error('Please log in to view logs.');
+  }
+  try {
+    const data = await callApi('dhcp-logs', 'POST', token, {});
+    console.log('=== DHCP Service Logs (Last 50 lines) ===');
+    console.log(data.logs);
+    toast.success('DHCP logs retrieved - check console for details');
+  } catch (error) {
+    console.error('Failed to retrieve logs:', error);
+  }
+};
+
+const restoreFromBackup = async () => {
+  if (!isLoggedIn) {
+    return toast.error('Please log in to restore from backup.');
+  }
+  
+  // Use the backup file from the diff you showed: dhcpd.conf.backup.25-08-05
+  const backupFile = 'dhcpd.conf.backup.25-08-05';
+  
+  if (!confirm(`Are you sure you want to restore DHCP configuration from ${backupFile}? This will replace the current configuration.`)) {
+    return;
+  }
+  
+  try {
+    await callApi('restore-backup', 'POST', token, { backupFile });
+    toast.success(`DHCP configuration restored from ${backupFile}`);
+    
+    // Refresh the config and check status
+    setTimeout(() => {
+      fetchDhcpdConf();
+      checkStatus();
+    }, 1000);
+  } catch (error: any) {
+    console.error('Failed to restore backup:', error);
+    toast.error('Failed to restore from backup - check console for details');
   }
 };
 
@@ -352,44 +407,50 @@ const handleLogin = async () => {
   }
 };
 
-const handleAddEntry = async (entry: DHCPEntry) => {
-  if (!isLoggedIn) {
-    return toast.error('Please log in to add or edit an entry.');
-  }
-
-  setIsUpdatingConfig(true);
-  try {
-    const isEditMode = !!currentHostname;
-    const action = isEditMode ? 'Edit Entry' : 'Add Entry';
-    const details = {
-      ipAddress: entry.ipAddress,
-      hostname: entry.hostname,
-      macAddress: entry.macAddress,
-      previousHostname: isEditMode ? currentHostname : undefined,
-    };
-    
-    const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname, selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {});
-
-    // The API call is now much simpler
-    await callApi('update-dhcpd-conf', 'POST', token, {
-      dhcpdConf: updatedDhcpdConf,
-      action,
-      details,
-    });
-    
-    toast.success(`Successfully updated entry for ${entry.hostname}`);
-    // Refresh data after successful update
-    fetchDhcpdConf();
-    resetAddEntryModal();
-    checkStatus();
-
-  } catch (error) {
-    // The callApi helper already shows a toast
-    console.error('Error updating DHCP configuration:', error);
-  } finally {
-    setIsUpdatingConfig(false);
-  }
-};
+  const handleAddEntry = async (entry: DHCPEntry) => {
+    if (!isLoggedIn) {
+      return toast.error('Please log in to add or edit an entry.');
+    }
+  
+    setIsUpdatingConfig(true);
+    try {
+      const isEditMode = !!currentHostname;
+      const action = isEditMode ? 'Edit Entry' : 'Add Entry';
+      const details = {
+        ipAddress: entry.ipAddress,
+        hostname: entry.hostname,
+        macAddress: entry.macAddress,
+        previousHostname: isEditMode ? currentHostname : undefined,
+      };
+      
+      const updatedDhcpdConf = updateHostEntry(dhcpdConfString, currentHostname, entry.ipAddress, entry.macAddress, entry.hostname, selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {});
+  
+      await callApi('update-dhcpd-conf', 'POST', token, {
+        dhcpdConf: updatedDhcpdConf,
+        action,
+        details,
+      });
+      
+      toast.success(`Successfully updated entry for ${entry.hostname}`);
+      // Refresh data after successful update
+      fetchDhcpdConf();
+      resetAddEntryModal();
+      checkStatus();
+  
+    } catch (error: any) { {
+        // Check for specific duplicate entry errors from our helper
+        if (error.message.includes('already exists') || error.message.includes('already assigned')) {
+            toast.error(error.message);
+        } else {
+            // Generic error for other issues
+            toast.error('Failed to update DHCP configuration.');
+        }
+        console.error('Error updating DHCP configuration:', error);
+    }
+    } finally {
+      setIsUpdatingConfig(false);
+    }
+  };
 
 const resetAddEntryModal = () => {
   setIsAddEntryModalOpen(false);
@@ -503,6 +564,9 @@ const confirmDelete = async () => {
                 onCheck={checkStatus}
                 onRestart={restartService}
                 isRestartingService={isRestartingService}
+                onCheckConfig={checkDhcpConfig}
+                onViewLogs={viewDhcpLogs}
+                onRestoreBackup={restoreFromBackup}
               />
 
               {/* IP Controls */}

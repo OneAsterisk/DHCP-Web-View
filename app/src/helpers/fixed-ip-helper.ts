@@ -118,7 +118,16 @@ export function parseDHCPDConf(dhcpdConf: string, serverTypeDescriptions?: { [ke
   }
 
   export function deleteHostEntry(dhcpdConf: string, hostName: string): string {
-    const lines = dhcpdConf.split('\n');
+    // Detect original line ending style to preserve it
+    let lineEnding = '\n'; // Default to Unix
+    if (dhcpdConf.includes('\r\n')) {
+      lineEnding = '\r\n'; // Windows style
+    } else if (dhcpdConf.includes('\r')) {
+      lineEnding = '\r'; // Old Mac style
+    }
+    
+    // Split preserving all line ending types
+    const lines = dhcpdConf.split(/\r?\n/);
     
     // Find the starting line of the host block in the original content
     const hostBlockStartIndex = lines.findIndex(line => {
@@ -156,33 +165,49 @@ export function parseDHCPDConf(dhcpdConf: string, serverTypeDescriptions?: { [ke
     // Remove the entire block
     lines.splice(hostBlockStartIndex, hostBlockEndIndex - hostBlockStartIndex + 1);
 
-    return lines.join('\n');
+    return lines.join(lineEnding);
   }
 
   export function updateHostEntry(dhcpdConf: string, hostName: string, newIP?: string, newMAC?: string, newHostName?: string, serverTypeDescriptions?: { [key: string]: number[] }) {
-    const lines = dhcpdConf.split('\n');
+    // Detect original line ending style to preserve it
+    let lineEnding = '\n'; // Default to Unix
+    if (dhcpdConf.includes('\r\n')) {
+      lineEnding = '\r\n'; // Windows style
+    } else if (dhcpdConf.includes('\r')) {
+      lineEnding = '\r'; // Old Mac style
+    }
+    
+    // Split preserving all line ending types
+    const lines = dhcpdConf.split(/\r?\n/);
     const hosts = parseDHCPDConf(dhcpdConf, serverTypeDescriptions);
     
     const target = hosts.find((host: FixedIp) => host.hostName === hostName);
     
+    // This is a new entry
     if(!target) {
-        // For new entries, find the right insertion point by IP address
         const finalName = newHostName ?? hostName;
+        // --- DUPLICATE CHECK ---
+        if (hosts.some(h => h.hostName === finalName)) {
+            throw new Error(`Cannot add new entry: host with name "${finalName}" already exists.`);
+        }
+        if (newIP && hosts.some(h => h.ip === newIP)) {
+            throw new Error(`Cannot add new entry: IP address "${newIP}" is already assigned.`);
+        }
+        // --- END DUPLICATE CHECK ---
+
         const newBlock = `host ${finalName} { hardware ethernet ${newMAC}; fixed-address ${newIP}; }`;
         
-        // Build an array of every host line with its IP address
+        // Find the right insertion point by IP address to keep the file sorted
         const hostEntries: Array<{ lineIndex: number; ip: string }> = [];
         lines.forEach((line, idx) => {
           const ipMatch = line.match(/fixed-address\s+(\d{1,3}(?:\.\d{1,3}){3})/);
           if (ipMatch) hostEntries.push({ lineIndex: idx, ip: ipMatch[1] });
         });
         
-        // Sort by IP (lexicographic is fine for dotted quads)
         hostEntries.sort((a, b) => a.ip.localeCompare(b.ip));
         
-        // Find the first host whose IP is greater than the new one
         const newIPVal = newIP ?? '';
-        let insertIndex = lines.length; // default: append
+        let insertIndex = lines.length;
         for (const entry of hostEntries) {
           if (entry.ip > newIPVal) {
             insertIndex = entry.lineIndex;
@@ -191,27 +216,39 @@ export function parseDHCPDConf(dhcpdConf: string, serverTypeDescriptions?: { [ke
         }
         
         lines.splice(insertIndex, 0, newBlock);
-        return lines.join('\n');
+        return lines.join(lineEnding);
     }
+
+    // This is an existing entry being edited
     const finalName = newHostName ?? hostName;
-    const indent = (lines[target.lineNumber] || '').match(/^\s*/)?.[0] ?? '';
+
+    // --- DUPLICATE CHECK (for edits) ---
+    if (newHostName && newHostName !== hostName && hosts.some(h => h.hostName === newHostName)) {
+        throw new Error(`Cannot rename host: name "${newHostName}" is already in use.`);
+    }
+    if (newIP && newIP !== target.ip && hosts.some(h => h.ip === newIP)) {
+        throw new Error(`Cannot change IP: address "${newIP}" is already assigned.`);
+    }
+    // --- END DUPLICATE CHECK ---
+
+    const indent = (lines[target.lineNumber - 1] || '').match(/^\s*/)?.[0] ?? '';
     const newBlock = [
       `${indent}host ${finalName} {`,
-      newMAC ? `${indent}  hardware ethernet ${newMAC};` : undefined,
-      newIP ? `${indent}  fixed-address ${newIP};` : undefined,
+      `${indent}  hardware ethernet ${newMAC ?? target.HWAddress};`,
+      `${indent}  fixed-address ${newIP ?? target.ip};`,
       `${indent}}`,
     ]
       .filter(Boolean)
-      .join(' ');
-    console.log('lineNumber',target.lineNumber);
+      .join(lineEnding);
+      
+    // Replace the old block with the new one
     lines.splice(
       target.lineNumber -1,
       1,
       newBlock
     );
-    console.log('newBlock',newBlock);
-    console.log('lines',lines);
-    return lines.join('\n');
+
+    return lines.join(lineEnding);
 }
 
 

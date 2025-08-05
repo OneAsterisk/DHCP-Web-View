@@ -7,15 +7,18 @@ type Props = {
   onCheck: () => Promise<string | undefined> | void;
   onRestart: () => Promise<string | undefined> | void;
   isRestartingService: boolean;
+  onCheckConfig?: () => Promise<void> | void;
+  onViewLogs?: () => Promise<void> | void;
+  onRestoreBackup?: () => Promise<void> | void;
 };
 
-const StatusCard: React.FC<Props> = ({ serviceStatus, isCheckingStatus, isLoggedIn, onCheck, onRestart, isRestartingService }) => {
+const StatusCard: React.FC<Props> = ({ serviceStatus, isCheckingStatus, isLoggedIn, onCheck, onRestart, isRestartingService, onCheckConfig, onViewLogs, onRestoreBackup }) => {
   const active = serviceStatus === 'active';
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">DHCP Server Status</h2>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-2">
           <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
             <span className={`w-2 h-2 mr-2 rounded-full ${active ? 'bg-green-500' : 'bg-red-500'}`} />
             {serviceStatus}
@@ -36,6 +39,36 @@ const StatusCard: React.FC<Props> = ({ serviceStatus, isCheckingStatus, isLogged
           >
             {isRestartingService ? 'Restarting…' : 'Restart Service'}
           </button>
+          {!active && onCheckConfig && (
+            <button
+              type="button"
+              onClick={onCheckConfig}
+              disabled={!isLoggedIn}
+              className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded text-xs"
+            >
+              Check Config
+            </button>
+          )}
+          {!active && onViewLogs && (
+            <button
+              type="button"
+              onClick={onViewLogs}
+              disabled={!isLoggedIn}
+              className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded text-xs"
+            >
+              View Logs
+            </button>
+          )}
+          {!active && onRestoreBackup && (
+            <button
+              type="button"
+              onClick={onRestoreBackup}
+              disabled={!isLoggedIn}
+              className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded text-xs"
+            >
+              Restore Backup
+            </button>
+          )}
         </div>
       </div>
     </div>

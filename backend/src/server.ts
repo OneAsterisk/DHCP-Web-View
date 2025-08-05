@@ -73,14 +73,26 @@ async function writeFileOverSSH(
         port: 22,
       });
   
-      // Ensure content ends with a newline (POSIX compliance)
-      const contentWithNewline = content.endsWith('\n') ? content : content + '\n';
+      // Detect original line ending style to preserve it
+      let lineEnding = '\n'; // Default to Unix
+      if (content.includes('\r\n')) {
+        lineEnding = '\r\n'; // Windows style
+      } else if (content.includes('\r')) {
+        lineEnding = '\r'; // Old Mac style
+      }
+      
+      // Ensure content ends with the detected line ending style (POSIX compliance)
+      let contentWithProperEnding = content;
+      if (!content.endsWith(lineEnding)) {
+        // Remove any existing line ending and add the correct one
+        contentWithProperEnding = content.replace(/\r?\n?$/, '') + lineEnding;
+      }
   
       // Get an SFTP session
       const sftp = await ssh.requestSFTP();
-      // Write the buffer directly
+      // Write the buffer directly, preserving original encoding
       await new Promise<void>((resolve, reject) => {
-        sftp.writeFile(remotePath, Buffer.from(contentWithNewline, 'utf8'), (err: any) =>
+        sftp.writeFile(remotePath, Buffer.from(contentWithProperEnding, 'utf8'), (err: any) =>
           err ? reject(err) : resolve(),
         );
       });
@@ -165,8 +177,24 @@ export async function runSSHCommand(
     });
   
     const fullCmd = `printf '%s\\n' '${decodedPassword}' | ${cmd}`;
-    const { stdout, stderr } = await ssh.execCommand(fullCmd);
-    if (stderr && stderr.includes('sudo:')) throw new Error(stderr);
+    const { stdout, stderr, code } = await ssh.execCommand(fullCmd);
+
+    // Special handling for dhcpd config check, as it prints to stderr on success.
+    if (cmd.startsWith('sudo -S dhcpd -t')) {
+        if (code !== 0) {
+            // On failure, stderr has the useful error message.
+            throw new Error(stderr);
+        }
+        // On success, the confirmation message is in stderr.
+        return stderr;
+    }
+
+    // For all other commands, a non-zero exit code is an error.
+    if (code !== 0) {
+        // Prefer stderr for the error message as it's more likely to contain the reason.
+        throw new Error(stderr || stdout);
+    }
+    
     return stdout;
   }
 
@@ -315,6 +343,100 @@ app.post('/api/restart-service', authToken, async (req: AuthRequest, res) => {
         }
         
         res.status(500).json({ error: errorMessage });
+    }
+});
+
+app.post('/api/check-dhcp-config', authToken, async (req: AuthRequest, res) => {
+    const auth = req.user;
+
+    if(!auth) {
+        return res.status(401).json({error: 'Unauthorized'});
+    }
+
+    try {
+        console.log('Checking DHCP configuration syntax...');
+        // Test the configuration file syntax without starting the service
+        const result = await runSSHCommand(auth, 'sudo -S dhcpd -t -cf /etc/dhcp/dhcpd.conf');
+        console.log('DHCP configuration syntax check passed');
+        
+        await logActivity(auth.username, `Checked DHCP configuration syntax on ${auth.host}`);
+        res.json({ message: 'DHCP configuration syntax is valid', output: result });
+    } catch (error: any) {
+        console.error('DHCP configuration syntax check failed:', error.message);
+        
+        await logActivity(auth.username, `DHCP configuration syntax check failed on ${auth.host}: ${error.message}`);
+        res.status(400).json({ 
+            error: 'DHCP configuration has syntax errors', 
+            details: error.message 
+        });
+    }
+});
+
+app.post('/api/dhcp-logs', authToken, async (req: AuthRequest, res) => {
+    const auth = req.user;
+
+    if(!auth) {
+        return res.status(401).json({error: 'Unauthorized'});
+    }
+
+    try {
+        console.log('Fetching DHCP service logs...');
+        // Get the last 50 lines of DHCP service logs
+        const result = await runSSHCommand(auth, 'sudo -S journalctl -u isc-dhcp-server -n 50 --no-pager');
+        console.log('DHCP service logs retrieved');
+        
+        await logActivity(auth.username, `Retrieved DHCP service logs on ${auth.host}`);
+        res.json({ logs: result });
+    } catch (error: any) {
+        console.error('Error retrieving DHCP logs:', error.message);
+        
+        let errorMessage = 'Failed to retrieve DHCP logs';
+        if (error.message.includes('All configured authentication methods failed')) {
+            errorMessage = 'Authentication failed. Please check your username and password.';
+        } else if (error.message.includes('connect ECONNREFUSED') || error.message.includes('getaddrinfo ENOTFOUND')) {
+            errorMessage = 'Cannot connect to server. Please check the server address.';
+        } else if (error.message.includes('timeout')) {
+            errorMessage = 'Connection timeout. Please check your network connection.';
+        }
+        
+        res.status(500).json({ error: errorMessage });
+    }
+});
+
+app.post('/api/restore-backup', authToken, async (req: AuthRequest, res) => {
+    const { backupFile } = req.body;
+    const auth = req.user;
+
+    if(!auth) {
+        return res.status(401).json({error: 'Unauthorized'});
+    }
+
+    try {
+        console.log(`Restoring DHCP config from backup: ${backupFile}`);
+        
+        // Validate backup file name for security
+        if (!backupFile || !backupFile.match(/^dhcpd\.conf\.backup\.\d{2}-\d{2}-\d{2}$/)) {
+            return res.status(400).json({ error: 'Invalid backup file name' });
+        }
+        
+        // Copy backup to current config
+        await runSSHCommand(auth, `sudo -S cp /etc/dhcp/${backupFile} /etc/dhcp/dhcpd.conf`);
+        
+        // Check if service can start with restored config
+        await runSSHCommand(auth, 'sudo -S dhcpd -t -cf /etc/dhcp/dhcpd.conf');
+        
+        console.log('DHCP config restored from backup successfully');
+        await logActivity(auth.username, `Restored DHCP config from backup ${backupFile} on ${auth.host}`);
+        
+        res.json({ message: `DHCP configuration restored from ${backupFile}` });
+    } catch (error: any) {
+        console.error('Error restoring DHCP backup:', error.message);
+        
+        await logActivity(auth.username, `Failed to restore DHCP config from backup on ${auth.host}: ${error.message}`);
+        res.status(500).json({ 
+            error: 'Failed to restore DHCP configuration from backup', 
+            details: error.message 
+        });
     }
 });
 // Load environment variables
