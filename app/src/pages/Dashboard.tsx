@@ -182,17 +182,8 @@ useEffect(() => {
     const descriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions;
     const ipPrefix = selectedSubnet?.ipPrefix || selectedServer?.ipPrefix;
     
-    console.log('=== IP Generation Debug ===');
-    console.log('selectedType:', selectedType);
-    console.log('descriptions:', descriptions);
-    console.log('ipPrefix:', ipPrefix);
-    console.log('dhcpdConf length:', dhcpdConf.length);
-    console.log('dhcpdConf entries:', dhcpdConf.slice(0, 3));
-    
     if (descriptions && ipPrefix) {
       const typeNumbers = descriptions[selectedType];
-      console.log('typeNumbers for', selectedType, ':', typeNumbers);
-      
       if (typeNumbers && typeNumbers.length > 0) {
         // Check if this is a large range (more than 50 type numbers)
         const isLargeRange = typeNumbers.length > 50;
@@ -205,27 +196,18 @@ useEffect(() => {
           
           // Generate only the current page of IPs
           const leases = createVOIPLeaseArray(dhcpdConf, ipPrefix, typeNumbers, currentPage, itemsPerPage);
-          console.log('Generated leases (large range):', leases.length, 'entries');
-          console.log('First few leases:', leases.slice(0, 5));
           setLeaseArray(leases);
         } else {
           // For normal ranges, generate all IPs
           const allLeases: LeaseArray[] = [];
           typeNumbers.forEach(typeNumber => {
             const leases = createLeaseArray(dhcpdConf, typeNumber, ipPrefix);
-            console.log(`Leases for type ${typeNumber}:`, leases.length, 'entries');
             allLeases.push(...leases);  // Spread operator to combine arrays
           });
-          console.log('Total generated leases:', allLeases.length);
-          console.log('First few leases:', allLeases.slice(0, 5));
           setLeaseArray(allLeases);
           setTotalPages(1);
         }
-      } else {
-        console.log('No typeNumbers found for selectedType:', selectedType);
       }
-    } else {
-      console.log('Missing descriptions or ipPrefix');
     }
     
     setIsLoadingIPs(false);
@@ -248,17 +230,8 @@ const fetchDhcpdConf = async () => {
     // Notice: no 'auth' object needed in the body anymore!
     const data = await callApi('dhcpd-conf', 'POST', token, { command });
     
-    console.log('Raw DHCP config length:', data.output?.length || 0);
-    console.log('First 500 chars of DHCP config:', data.output?.substring(0, 500));
-    
     const currentTypeDescriptions = selectedSubnet?.typeDescriptions || selectedServer?.typeDescriptions || {};
-    console.log('Type descriptions being used:', currentTypeDescriptions);
-    
-    const parsedConf = parseDHCPDConf(data.output, currentTypeDescriptions);
-    console.log('Parsed DHCP entries count:', parsedConf.length);
-    console.log('First few parsed entries:', parsedConf.slice(0, 5));
-    
-    setDhcpdConf(parsedConf);
+    setDhcpdConf(parseDHCPDConf(data.output, currentTypeDescriptions));
     setDhcpdConfString(data.output);
   } catch (error) {
     // The callApi helper already shows a toast, so we just log here.
