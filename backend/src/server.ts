@@ -64,11 +64,12 @@ async function writeFileOverSSH(
     content: string,
   ): Promise<void> {
     const ssh = new NodeSSH();
+    const decodedPassword = Buffer.from(auth.password, 'base64').toString('utf8');
     try {
       await ssh.connect({
         host: auth.host,
         username: auth.username,
-        password: auth.password,
+        password: decodedPassword,
         port: 22,
       });
   
@@ -160,7 +161,7 @@ export async function runSSHCommand(
       port: 22,
     });
   
-    const fullCmd = `printf '%s\\n' '${auth.password}' | ${cmd}`;
+    const fullCmd = `printf '%s\\n' '${decodedPassword}' | ${cmd}`;
     const { stdout, stderr } = await ssh.execCommand(fullCmd);
     if (stderr && stderr.includes('sudo:')) throw new Error(stderr);
     return stdout;
