@@ -73,11 +73,14 @@ async function writeFileOverSSH(
         port: 22,
       });
   
+      // Ensure content ends with a newline (POSIX compliance)
+      const contentWithNewline = content.endsWith('\n') ? content : content + '\n';
+  
       // Get an SFTP session
       const sftp = await ssh.requestSFTP();
       // Write the buffer directly
       await new Promise<void>((resolve, reject) => {
-        sftp.writeFile(remotePath, Buffer.from(content, 'utf8'), (err: any) =>
+        sftp.writeFile(remotePath, Buffer.from(contentWithNewline, 'utf8'), (err: any) =>
           err ? reject(err) : resolve(),
         );
       });

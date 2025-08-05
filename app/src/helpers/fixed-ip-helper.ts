@@ -70,6 +70,10 @@ export const getTypeDescriptionFromContext = (
 
 // Updated parseDHCPDConf function to accept server context
 export function parseDHCPDConf(dhcpdConf: string, serverTypeDescriptions?: { [key: string]: number[] }) {
+    console.log('=== DHCP Parsing Debug ===');
+    console.log('Input length:', dhcpdConf?.length || 0);
+    console.log('ServerTypeDescriptions:', serverTypeDescriptions);
+    
     const fixedIps: Array<{
       hostName: string;
       ip: string;
@@ -79,28 +83,42 @@ export function parseDHCPDConf(dhcpdConf: string, serverTypeDescriptions?: { [ke
       HWAddress: string;
     }> = [];
   
-    // 1. throw away comments so they don’t break the regex
+    // 1. throw away comments so they don't break the regex
     const cleaned = dhcpdConf
       .split('\n')
       .map((l) => l.replace(/#.*$/, '').trim())
       .join('\n');
+  
+    console.log('Cleaned config length:', cleaned.length);
+    console.log('Looking for host entries...');
   
     // 2. dot matches newlines workaround for JS (no (?s) flag in JS regex)
     const hostRegex =
       /\bhost\s+([^\s{]+)\s*\{([\s\S]*?)\}/g;
   
     let m;
+    let matchCount = 0;
     while ((m = hostRegex.exec(cleaned)) !== null) {
+      matchCount++;
       const [, hostName, body] = m;
+      console.log(`Found host ${matchCount}: ${hostName}`);
   
       const macMatch = body.match(/\bhardware\s+ethernet\s+([0-9a-fA-F:]{17})/);
       const ipMatch = body.match(/\bfixed-address\s+(\d{1,3}(?:\.\d{1,3}){3})/);
   
-      if (!macMatch || !ipMatch) continue;
+      console.log(`  MAC match: ${macMatch?.[1] || 'none'}`);
+      console.log(`  IP match: ${ipMatch?.[1] || 'none'}`);
+  
+      if (!macMatch || !ipMatch) {
+        console.log(`  Skipping ${hostName} - missing MAC or IP`);
+        continue;
+      }
   
       const ip = ipMatch[1];
       const typeOctet = ip.split('.')[2];
       const type = getTypeDescriptionFromContext(Number(typeOctet), serverTypeDescriptions || {});
+  
+      console.log(`  Adding: ${hostName} -> ${ip} (type: ${type})`);
   
       // line number of the host keyword
       const lineNumber = cleaned.slice(0, m.index).split('\n').length;
@@ -114,6 +132,7 @@ export function parseDHCPDConf(dhcpdConf: string, serverTypeDescriptions?: { [ke
       });
     }
   
+    console.log(`Total hosts found: ${matchCount}, valid entries: ${fixedIps.length}`);
     return sortIPs(fixedIps);
   }
 
