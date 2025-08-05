@@ -4,10 +4,12 @@ type Props = {
   serviceStatus: string;
   isCheckingStatus: boolean;
   isLoggedIn: boolean;
-  onCheck: () => void;
+  onCheck: () => Promise<string | undefined> | void;
+  onRestart: () => Promise<string | undefined> | void;
+  isRestartingService: boolean;
 };
 
-const StatusCard: React.FC<Props> = ({ serviceStatus, isCheckingStatus, isLoggedIn, onCheck }) => {
+const StatusCard: React.FC<Props> = ({ serviceStatus, isCheckingStatus, isLoggedIn, onCheck, onRestart, isRestartingService }) => {
   const active = serviceStatus === 'active';
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
@@ -25,6 +27,14 @@ const StatusCard: React.FC<Props> = ({ serviceStatus, isCheckingStatus, isLogged
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded text-xs"
           >
             {isCheckingStatus ? 'Checking…' : 'Check Status'}
+          </button>
+          <button
+            type="button"
+            onClick={onRestart}
+            disabled={isRestartingService || !isLoggedIn}
+            className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded text-xs"
+          >
+            {isRestartingService ? 'Restarting…' : 'Restart Service'}
           </button>
         </div>
       </div>

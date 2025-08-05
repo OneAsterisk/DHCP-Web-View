@@ -66,6 +66,7 @@ function Dashboard() {
   const [isCheckingStatus, setIsCheckingStatus] = useState<boolean>(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(false);
   const [isUpdatingConfig, setIsUpdatingConfig] = useState<boolean>(false);
+  const [isRestartingService, setIsRestartingService] = useState<boolean>(false);
 
 const typeDescriptions = useMemo(() => {
   // Check if we have a selected subnet, otherwise fall back to server-level typeDescriptions
@@ -251,14 +252,38 @@ const checkStatus = async () => {
 
     setOutput(data.output);
     const lines = data.output.split('\n');
+    console.log(lines);
     const serviceStatus = lines.find((line: string) => line.trim().startsWith('Active:'));
     let status = serviceStatus?.includes('active') ? "active" : "inactive";
     setServiceStatus(status);
-    toast.success(`Service is ${status}`);
+    if(status === 'active') {
+      toast.success(`Service is ${status}`);
+    } else {
+      toast.error(`Service is ${status}`);
+    }
   } catch (error) {
     console.error('Failed to check status:', error);
   } finally {
     setIsCheckingStatus(false);
+  }
+};
+
+const restartService = async () => {
+  if (!isLoggedIn) {
+    return toast.error('Please log in to restart the service.');
+  }
+  setIsRestartingService(true);
+  try {
+    await callApi('restart-service', 'POST', token, {});
+    toast.success('DHCP service restarted successfully');
+    // Check status after restart to update the UI
+    setTimeout(() => {
+      checkStatus();
+    }, 2000); // Wait 2 seconds for service to fully start
+  } catch (error) {
+    console.error('Failed to restart service:', error);
+  } finally {
+    setIsRestartingService(false);
   }
 };
 
@@ -476,6 +501,8 @@ const confirmDelete = async () => {
                 isCheckingStatus={isCheckingStatus}
                 isLoggedIn={isLoggedIn}
                 onCheck={checkStatus}
+                onRestart={restartService}
+                isRestartingService={isRestartingService}
               />
 
               {/* IP Controls */}

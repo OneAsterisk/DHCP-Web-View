@@ -200,9 +200,9 @@ app.post('/api/update-dhcpd-conf', authToken, async (req: AuthRequest, res) => {
       // Detailed logging
       const logMessage = `${action}, Details: ${JSON.stringify(details)}`;
       await logActivity(auth.username, `${logMessage} on ${auth.host}`);
-  
+      console.log('Restarting service');
       await runSSHCommand(auth, 'sudo -S systemctl restart isc-dhcp-server');
-  
+      console.log('Service restarted');
       res.json({ message: 'DHCP configuration updated successfully' });
     } catch (error: any) {
       console.error('Error updating DHCP configuration:', error);
@@ -272,6 +272,37 @@ app.post('/api/leases', authToken, async (req: AuthRequest, res) => {
         
         // Provide more specific error messages based on the error type
         let errorMessage = 'Failed to execute command';
+        if (error.message.includes('All configured authentication methods failed')) {
+            errorMessage = 'Authentication failed. Please check your username and password.';
+        } else if (error.message.includes('connect ECONNREFUSED') || error.message.includes('getaddrinfo ENOTFOUND')) {
+            errorMessage = 'Cannot connect to server. Please check the server address.';
+        } else if (error.message.includes('timeout')) {
+            errorMessage = 'Connection timeout. Please check your network connection.';
+        }
+        
+        res.status(500).json({ error: errorMessage });
+    }
+});
+
+app.post('/api/restart-service', authToken, async (req: AuthRequest, res) => {
+    const auth = req.user;
+
+    if(!auth) {
+        return res.status(401).json({error: 'Unauthorized'});
+    }
+
+    try {
+        console.log('Restarting DHCP service...');
+        await runSSHCommand(auth, 'sudo -S systemctl restart isc-dhcp-server');
+        console.log('DHCP service restarted successfully');
+        
+        await logActivity(auth.username, `Manually restarted DHCP service on ${auth.host}`);
+        res.json({ message: 'DHCP service restarted successfully' });
+    } catch (error: any) {
+        console.error('Error restarting DHCP service:', error.message);
+        
+        // Provide more specific error messages based on the error type
+        let errorMessage = 'Failed to restart DHCP service';
         if (error.message.includes('All configured authentication methods failed')) {
             errorMessage = 'Authentication failed. Please check your username and password.';
         } else if (error.message.includes('connect ECONNREFUSED') || error.message.includes('getaddrinfo ENOTFOUND')) {
