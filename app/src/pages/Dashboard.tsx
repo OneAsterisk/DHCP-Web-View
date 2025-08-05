@@ -10,6 +10,7 @@ import ServerSelector from '../components/ServerSelector';
 import AuthCard from '../components/AuthCard';
 import StatusCard from '../components/StatusCard';
 import IpControls from '../components/IpControls';
+import SearchResults from '../components/SearchResults';
 export type Subnet = {
   name: string;
   ipPrefix: string;
@@ -61,6 +62,29 @@ function Dashboard() {
   const [isLargeRange, setIsLargeRange] = useState<boolean>(false);
   const [isLoadingIPs, setIsLoadingIPs] = useState<boolean>(false);
   
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    // When a search is performed, we want to clear the device type filter
+    // to show results from the entire configuration.
+    if (query) {
+      setSelectedType('');
+    }
+  };
+
+  const filteredDhcpdConf = useMemo(() => {
+    if (!searchQuery) {
+      return []; // Don't show any results unless a search is active
+    }
+    const lowercasedQuery = searchQuery.toLowerCase();
+    return dhcpdConf.filter(entry => 
+      entry.hostName?.toLowerCase().includes(lowercasedQuery) ||
+      entry.ip?.toLowerCase().includes(lowercasedQuery) ||
+      entry.HWAddress?.toLowerCase().includes(lowercasedQuery)
+    );
+  }, [searchQuery, dhcpdConf]);
+
   // Loading states
   const [isLoadingServers, setIsLoadingServers] = useState<boolean>(true);
   const [isCheckingStatus, setIsCheckingStatus] = useState<boolean>(false);
@@ -564,9 +588,6 @@ const confirmDelete = async () => {
                 onCheck={checkStatus}
                 onRestart={restartService}
                 isRestartingService={isRestartingService}
-                onCheckConfig={checkDhcpConfig}
-                onViewLogs={viewDhcpLogs}
-                onRestoreBackup={restoreFromBackup}
               />
 
               {/* IP Controls */}
@@ -580,10 +601,30 @@ const confirmDelete = async () => {
                 isLoggedIn={isLoggedIn}
                 fixedCount={dhcpdConf.length}
                 ipCount={leaseArray.length}
+                onSearch={handleSearch}
+                searchQuery={searchQuery}
               />
 
               {/* IP Table Card */}
-              <IPTable leaseArray={leaseArray} isLoadingIPs={isLoadingIPs} isLoggedIn={isLoggedIn} selectedType={selectedType} handleOpenAddEntryModal={handleOpenAddEntryModal} handleEditEntry={handleEditEntry} handleDeleteEntry={handleDeleteEntry} isUpdatingConfig={isUpdatingConfig} selectedSubnet={selectedSubnet} />
+              {searchQuery ? (
+                <SearchResults
+                  results={filteredDhcpdConf}
+                  handleEditEntry={handleEditEntry}
+                  handleDeleteEntry={handleDeleteEntry}
+                />
+              ) : (
+                <IPTable 
+                  leaseArray={leaseArray} 
+                  isLoadingIPs={isLoadingIPs} 
+                  isLoggedIn={isLoggedIn} 
+                  selectedType={selectedType} 
+                  handleOpenAddEntryModal={handleOpenAddEntryModal} 
+                  handleEditEntry={handleEditEntry} 
+                  handleDeleteEntry={handleDeleteEntry} 
+                  isUpdatingConfig={isUpdatingConfig} 
+                  selectedSubnet={selectedSubnet} 
+                />
+              )}
             </div>
           </div>
         </main>
